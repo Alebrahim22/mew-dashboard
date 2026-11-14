@@ -454,3 +454,10 @@ button.kpi:active{transform:scale(.98)}
 .negck:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
 .mallow{display:inline-flex;align-items:center;gap:4px;font-size:.8rem;color:var(--muted)}
 .mallow input{width:64px!important;min-height:36px!important;padding:4px 8px!important;text-align:center}
+.gocta{position:sticky;bottom:8px;z-index:3;font-size:1.05rem;min-height:56px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 10px 24px -8px rgba(37,99,235,.6)}
+#shareBtn{font-size:1.05rem;min-height:54px}
+#shareBtn:disabled{opacity:.7}
+.rep{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rep:last-of-type{border-bottom:0}
+.rep-ic{flex:none;width:40px;height:40px;border-radius:10px;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-size:.7rem;font-weight:800}
+.rep .stbody{flex:1;min-width:0}

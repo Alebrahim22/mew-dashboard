@@ -121,6 +121,11 @@
     </div>
 
     <div class="card" data-sv="visits">
+      <div class="card-head"><h2>تقاريري</h2><span class="xs muted" id="sReportsCount"></span></div>
+      <div id="sReports"></div>
+    </div>
+
+    <div class="card" data-sv="visits">
       <div class="card-head"><h2>محطاتي هالشهر</h2><span class="xs muted" id="sMineCount"></span></div>
       <div id="sMine"></div>
     </div>
@@ -295,9 +300,9 @@
     <div class="field"><label for="v_notes">خانة الملاحظات في النموذج</label><input id="v_notes" placeholder="اختياري"></div>
     <div class="field"><span class="flabel">مراحل الزيارة</span><div class="steps-edit" id="v_steps"></div></div>
     <div class="diwan" id="v_diwan"></div>
-    <button class="btn primary big" type="submit">حفظ الزيارة</button>
+    <button class="btn primary big gocta" type="submit" id="v_go"><span aria-hidden="true">📄</span> حفظ وتجهيز التقرير PDF</button>
     <div class="actions" style="justify-content:space-between">
-      <button type="button" class="btn" id="v_report">حفظ وتجهيز التقرير PDF</button>
+      <button type="button" class="btn ghost" id="v_saveonly">حفظ الزيارة بدون تقرير</button>
       <button type="button" class="btn sm danger" id="v_del" hidden>حذف الزيارة</button>
     </div>
   </form>
@@ -308,13 +313,13 @@
   <div class="sheet">
     <div class="grab"></div>
     <div class="sheet-head"><div><h2>نموذج انتقال للعمل الميداني</h2><div class="xs muted">معبّأ من بيانات الزيارة. التواقيع تبقى بخط اليد.</div></div><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <button class="btn primary big" id="shareBtn" hidden style="width:100%"></button>
     <img id="reportImg" alt="نموذج التقرير معبّأ" style="width:100%;border-radius:8px;border:1px solid var(--line);background:#fff">
     <div id="reportExtra"></div>
     <div class="actions" id="reportBtns">
-      <button class="btn primary" id="savePdf">حفظ PDF</button>
+      <button class="btn" id="savePdf">تحديث ملف الـ PDF</button>
       <button class="btn" id="saveJpg">حفظ صورة JPG</button>
     </div>
-    <button class="btn primary big" id="shareBtn" hidden style="width:100%;margin-top:8px"></button>
     <p class="xs muted" id="reportHint"></p>
   </div>
 </div>

@@ -829,6 +829,7 @@ function renderSites(){
     <span class="bar"><i style="width:${Math.min(100,counts[i]/target*100)}%"></i></span></div>`).join('')
     + (S.stations.length < target*5 ? `<p class="xs" style="color:var(--late)">عندك ${S.stations.length} محطة مسجلة، والفريق يحتاج ${target*5} عشان كل واحد ياخذ ${target}. أضف المحطات أو استوردها من القائمة الرسمية.</p>` : '');
 
+  renderReports();
   renderStations();
 }
 function stAddr(s){ return [s.area||'شرق', s.block?'ق '+s.block:'', s.street?'ش '+s.street:'', s.addr||''].filter(Boolean).join(' · '); }
@@ -1105,8 +1106,35 @@ async function openReport(v){
   $('reportExtra').innerHTML = reportPagesC.slice(1).map((c,i) => `<img src="${c.toDataURL('image/jpeg', .85)}" alt="صفحة ${i+2} من التقرير" class="rpage">`).join('');
   const can = !!S.dl;
   $('reportBtns').hidden = !can;
+  if (can) { const b = $('shareBtn'); b.hidden = false; b.disabled = true; b.textContent = 'جاري تجهيز ملف الـ PDF…'; pendingFile = null; saveReport('pdf'); }
   $('reportHint').textContent = can ? `ملف الـ PDF فيه ${reportPagesC.length} ${reportPagesC.length===2?'نموذجين':'نماذج'}${vPhotos.length ? ` و${vPhotos.length} ${vPhotos.length===1?'صورة':'صور'}` : ''}. ` + 'نزّله وارفعه بالتراسل ووقّع من هناك.' : 'الحفظ غير متاح في هذا العرض. اضغط مطولاً على الصورة لحفظها.';
 }
+function reportRows(){ return S.visits.filter(v => v.reportFile).sort((a,b) => claimOf(a) < claimOf(b) ? 1 : -1); }
+let allReports = false;
+function renderReports(){
+  const el = $('sReports'); if (!el) return;
+  const vs = S.visits.slice().sort((a,b) => claimOf(a) < claimOf(b) ? 1 : -1);
+  const n = vs.filter(v => v.reportFile).length;
+  $('sReportsCount').textContent = vs.length ? `${n} من ${vs.length} زيارة جاهز تقريرها` : '';
+  const shown = allReports ? vs : vs.slice(0, 5);
+  el.innerHTML = vs.length ? shown.map(v => `<div class="rep"><span class="rep-ic" aria-hidden="true">PDF</span><span class="stbody"><b>${esc(vNames(v)||'محطة')}</b><span class="xs muted">${fmtDate(claimOf(v),{weekday:'short',day:'numeric',month:'short'})}${v.reportFile ? '' : ' · ما انحفظ له تقرير'}</span></span>
+      ${v.reportFile ? `<button type="button" class="btn sm primary" data-repdl="${v.id}">تنزيل</button>` : ''}
+      <button type="button" class="btn sm" data-repopen="${v.id}">${v.reportFile ? 'مراجعة' : 'جهّز التقرير'}</button></div>`).join('')
+      + (vs.length > 5 ? `<button type="button" class="btn ghost" id="repMore">${allReports ? 'عرض الأحدث فقط' : 'عرض كل التقارير ('+vs.length+')'}</button>` : '')
+    : '<div class="empty">ما في تقارير للحين. أول ما تسجّل زيارة وتجهّز تقريرها ينحفظ هنا.</div>';
+}
+document.addEventListener('click', async ev => {
+  if (ev.target.closest('#repMore')) { allReports = !allReports; renderReports(); return; }
+  const dl = ev.target.closest('[data-repdl]'), op = ev.target.closest('[data-repopen]');
+  if (dl) {
+    const v = S.visits.find(x => x.id === dl.dataset.repdl); if (!v || !v.reportFile) return;
+    dl.disabled = true; const old = dl.textContent; dl.textContent = 'جاري التحميل…';
+    try { const b = await driveBlob(v.reportFile); pendingFile = new File([b], fileBase(v)+'.pdf', {type:'application/pdf'}); await handOff(); }
+    catch(e) { toast('ما قدرت أحمّل التقرير من الدرايف'); }
+    dl.disabled = false; dl.textContent = old; return;
+  }
+  if (op) { const v = S.visits.find(x => x.id === op.dataset.repopen); if (v) { openVisit(v.id); if (!v.reportFile) setTimeout(() => $('v_go') && $('v_go').click(), 400); } }
+});
 function fileBase(v){ return `تقرير ${(vNames(v)||'محطة').replace(/[\\/:*?"<>|]/g,'')} ${v.claimDate||''}`.trim(); }
 
 /* tiny PDF writer: each page is one full-page JPEG */
@@ -1146,8 +1174,8 @@ async function saveReport(kind){
       for (const pg of photoPages(await photoImages(), reportVisit, reportPagesC.length+1)) pages.push(await canvasJpeg(pg, .85));
       await S.dl.save({filename: fileBase(reportVisit)+'.pdf', data: makePdf(pages)});
     }
-    toast('تم الحفظ');
   } catch(err) {
+    { const b = $('shareBtn'); if (b.disabled) { b.disabled = false; b.textContent = 'أعد تجهيز ملف الـ PDF'; b.onclick = () => { b.onclick = handOff; saveReport('pdf'); }; } }
     if (err && err.code==='declined') return;
     toast(err && err.code==='rate_limited' ? 'في نافذة حفظ مفتوحة، كمّلها أول' : 'تعذّر حفظ الملف');
   }
@@ -1182,6 +1210,7 @@ document.addEventListener('click', async ev => {
   if (sp) { const [id,k] = sp.dataset.step.split('|'); const v = S.visits.find(x=>x.id===id); if (!v) return; const steps = {...(v.steps||{}), [k]: todayISO()};
     await write(() => S.db.doc('visits/'+id).update({steps}), 'تم: '+STEPS.find(s=>s[0]===k)[1]); return; }
   if (t.id==='v_copy') { copyText(diwanNote(visitFromForm())); return; }
+  if (t.id==='v_saveonly') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (!o.visitDate) { toast('حدد تاريخ الزيارة'); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (await saveVisit(o)) $('visitSheet').hidden = true; return; }
   if (t.id==='v_report') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (!o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (S.db && S.canWrite) await saveVisit(o, true); openReport(o); return; }
   if (t.id==='v_del') { if (await write(() => S.db.doc('visits/'+editingVisit).delete(), 'تم حذف الزيارة')) $('visitSheet').hidden = true; return; }
   if (t.id==='savePdf') { saveReport('pdf'); return; }
@@ -1212,8 +1241,10 @@ document.addEventListener('submit', async ev => {
     const o = visitFromForm();
     if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; }
     if (!o.visitDate) { toast('حدد تاريخ الزيارة'); return; }
+    if (!o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; }
     if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; }
-    if (await saveVisit(o)) $('visitSheet').hidden = true;
+    if (S.db && S.canWrite) await saveVisit(o, true);
+    openReport(o);
   }
   if (f.id==='stationF') {
     const o = {name:$('sn_name').value.trim(), area:$('sn_area').value.trim()||'شرق', block:$('sn_block').value.trim(), street:$('sn_street').value.trim(),
@@ -1509,7 +1540,7 @@ S.dl = {
   }
 };
 function showReady(file){
-  const b = $('shareBtn'); b.hidden = false; b.textContent = navigator.canShare && navigator.canShare({files:[file]}) ? 'مشاركة التقرير (التراسل، واتساب…)' : 'تنزيل التقرير';
+  const b = $('shareBtn'); b.hidden = false; b.disabled = false; b.textContent = navigator.canShare && navigator.canShare({files:[file]}) ? 'مشاركة التقرير (التراسل، واتساب…)' : 'تنزيل التقرير';
 }
 async function handOff(){
   const file = pendingFile; if (!file) return;
