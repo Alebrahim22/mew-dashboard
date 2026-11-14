@@ -440,3 +440,9 @@ button.kpi:active{transform:scale(.98)}
 .rpage{width:100%;border-radius:8px;border:1px solid var(--line);background:#fff;margin-top:10px}
 .vsec{font-size:1rem;font-weight:700;color:var(--primary);margin:6px 0 2px}
 .vsec2{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:12px}
+.sic{font-style:normal;font-size:.8em;margin-inline-end:1px}
+.stepgo{width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700}
+.stepgo .stepck-ic{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.25);font-size:.8rem}
+.att-ring .ring{width:96px;height:96px;flex:none}
+.btn.stepgo{background:linear-gradient(135deg,#0e9f6e,#14b8a6);color:#fff;border:0;box-shadow:0 6px 16px -6px rgba(14,159,110,.6)}
+.btn.stepgo:active{transform:scale(.98)}

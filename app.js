@@ -12,6 +12,7 @@ const SHIFT = {
   n:{n:'ليل', long:'خفارة ليلية', abbr:'ل', start:1380}
 };
 const SHIFT_H = 8;
+const SHIFT_IC = {m:'☀️', e:'🌇', n:'🌙'};
 // Roster: 5-day rotation. Reference = the date each crew had the 7:00AM shift in the Nov 2026 roster (days 1..5 = C,B,A,D,E)
 const CREW_MORNING = {A:'2026-11-03', B:'2026-11-02', C:'2026-11-01', D:'2026-11-04', E:'2026-11-05'};
 const PATTERN = ['m','e','n',null,null];
@@ -213,8 +214,8 @@ async function renderNotif(){
   const on = !!sub && Notification.permission === 'granted';
   $('stNotifState').textContent = on ? '· شغالة' : '';
   $('stNotifOn').hidden = on; $('stNotifTest').hidden = !on; $('stNotifOff').hidden = !on;
-  if (!pushOK()) { hint.hidden = false; hint.textContent = isIOS() && !isStandalone() ? 'على الآيفون: ثبّت الموقع على الشاشة الرئيسية أول (زر المشاركة ثم «إضافة إلى الشاشة الرئيسية»)، وافتحه من الأيقونة، وبعدها فعّل التنبيهات.' : 'هالمتصفح ما يدعم التنبيهات.'; $('stNotifOn').hidden = true; }
-  else if (Notification.permission === 'denied') { hint.hidden = false; hint.textContent = 'التنبيهات مقفلة لهالموقع من إعدادات الجهاز أو المتصفح. فعّلها من هناك وارجع هنا.'; }
+  if (!pushOK()) { hint.hidden = false; hint.textContent = isIOS() && !isStandalone() ? 'على الآيفون: ثبّت الداشبورد في تلفونك أول (زر المشاركة ثم «إضافة إلى الشاشة الرئيسية»)، وافتحه من الأيقونة، وبعدها فعّل التنبيهات.' : 'هالمتصفح ما يدعم التنبيهات.'; $('stNotifOn').hidden = true; }
+  else if (Notification.permission === 'denied') { hint.hidden = false; hint.textContent = 'التنبيهات مقفلة للداشبورد من إعدادات الجهاز أو المتصفح. فعّلها من هناك وارجع هنا.'; }
 }
 $('stNotifOn').onclick = async () => {
   try {
@@ -289,7 +290,7 @@ function renderInstallTip(){
   let hidden = false; try { hidden = localStorage.getItem('mew.installSkip') === '1'; } catch(e){}
   if (isStandalone() || hidden || (!isIOS() && !installEvt)) { el.innerHTML = ''; return; }
   el.innerHTML = `<div class="card tip"><div class="tip-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg></div>
-    <div class="tip-tx"><b>ثبّت الموقع على شاشتك</b>
+    <div class="tip-tx"><b>ثبّت الداشبورد في تلفونك</b>
       <small>${isIOS() ? 'من Safari اضغط زر المشاركة <span class="ltr">⬆</span> ثم «إضافة إلى الشاشة الرئيسية». يفتح مثل التطبيق وتوصلك التنبيهات.' : 'يفتح مثل التطبيق، وتقدر تشارك صورة البصمة له مباشرة، وتوصلك التنبيهات.'}</small>
       <span class="actions">${installEvt ? '<button type="button" class="btn sm primary" id="installGo">ثبّت الحين</button>' : ''}<button type="button" class="btn sm" id="installSkip">لاحقاً</button></span></div></div>`;
 }
@@ -352,7 +353,7 @@ function renderCal(evs){
     const c = e.status==='excused' ? STC.excused : (STC[e.status]||STC.rest);
     const cls = ['cell', e.duty?'duty':'', e.status==='future'?'future':'', e.date===t?'today':''].join(' ');
     const mini = e.duty && e.status!=='future' && (e.lateMin||e.missing) ? `<span class="mini">${e.lateMin?'<b></b>':''}${e.missing?'<b></b><b></b>':''}</span>` : '';
-    h += `<button class="${cls}" data-open="${e.date}" style="--c:var(${c[1]});--cbg:var(${c[2]})" aria-label="${fmtDate(e.date)}: ${e.duty?SHIFT[e.k].long+' '+c[0]:'راحة'}"><span class="d">${+e.date.slice(8)}</span>${e.duty?`<span class="ty">${SHIFT[e.k].n}</span>`:''}${mini}</button>`;
+    h += `<button class="${cls}" data-open="${e.date}" style="--c:var(${c[1]});--cbg:var(${c[2]})" aria-label="${fmtDate(e.date)}: ${e.duty?SHIFT[e.k].long+' '+c[0]:'راحة'}"><span class="d">${+e.date.slice(8)}</span>${e.duty?`<span class="ty"><i class="sic" aria-hidden="true">${SHIFT_IC[e.k]}</i>${SHIFT[e.k].n}</span>`:''}${mini}</button>`;
   }
   $('cal').innerHTML = h;
 }
@@ -370,7 +371,7 @@ function renderList(evs){
     else if (e.status!=='excused') fps = FP.map(([f]) => e.rec[f] ? `<span>${FPN[f]} ${to12(e.rec[f])}</span>` : e.state[f]==='missing' ? `<span class="x">✕ ${FPN[f]}</span>` : e.state[f]==='exempt' ? `<span>${FPN[f]} معفاة</span>` : '').join('');
     const d = parseISO(e.date);
     return `<button class="drow" data-open="${e.date}"><span class="date"><b>${d.getDate()}</b><span>${DAYS[d.getDay()].replace('ال','')}</span></span>
-      <span class="body"><span class="chips"><span class="chip" style="--c:var(--ink);--cbg:var(--sunk)">${SHIFT[e.k].n}</span>${statusChips(e)}${e.visit?'<span class="chip" style="--c:var(--primary);--cbg:var(--primary-soft)">زيارة موقع</span>':''}</span>${fps?`<span class="fprow">${fps}</span>`:''}${e.rec.note?`<span class="xs muted">${esc(e.rec.note)}</span>`:''}</span><span class="chev">‹</span></button>`;
+      <span class="body"><span class="chips"><span class="chip" style="--c:var(--ink);--cbg:var(--sunk)">${SHIFT_IC[e.k]} ${SHIFT[e.k].n}</span>${statusChips(e)}${e.visit?'<span class="chip" style="--c:var(--primary);--cbg:var(--primary-soft)">زيارة موقع</span>':''}</span>${fps?`<span class="fprow">${fps}</span>`:''}${e.rec.note?`<span class="xs muted">${esc(e.rec.note)}</span>`:''}</span><span class="chev">‹</span></button>`;
   }).join('') + more;
 }
 
@@ -623,7 +624,7 @@ function renderOverview(){
   const verdict = rate==null ? 'ما في خفارات محسوبة للحين' : rate===100 && !st.late && !st.missFp ? 'التزام كامل، بدون تأخير ولا نقص' : rate===100 ? 'داومت كل خفاراتك' : `غبت عن ${st.absent} ${st.absent===1?'خفارة':'خفارات'}`;
   let h = `<div class="card">
     <div class="card-head"><h2>الحضور والدوام</h2><span class="xs muted">${st.duties} خفارة في ${year?'السنة':'الشهر'}</span></div>
-    <div class="att"><div class="att-rate num" style="color:var(${rate!=null && rate<90 ? '--late' : '--ok'})">${rate==null?'—':rate+'%'}</div>
+    <div class="att"><div class="att-ring">${ringSVG(rate==null ? 0 : rate/100, rate==null ? '—' : rate+'%', 'حضور', rate!=null && rate<90 ? '--late' : '--ok')}</div>
       <div><div class="money"><span class="num">${st.attended}</span> <small>من ${due} خفارة مضت</small></div>
         <div class="small">${verdict}${st.future ? ' · <span class="muted">باقي '+st.future+' قادمة</span>' : ''}${st.excused ? ' · <span class="muted">'+st.excused+' بعذر</span>' : ''}</div></div></div>
     ${st.duties ? `<div class="strip" role="img" aria-label="توزيع الخفارات حسب الحالة">${segs.map(s=>`<i style="flex:${st[s[0]]};background:var(${s[2]})" title="${s[1]}: ${st[s[0]]}"></i>`).join('')}</div>
@@ -807,7 +808,7 @@ function renderSites(){
           ${(v.photos||[]).length ? `<span class="chip">${v.photos.length} صور</span>` : ''}
           ${v.partner!=null && v.partner!=='' ? `<span class="chip">مع ${esc(T[+v.partner]||'')}</span>` : ''}</span>
       </button>
-      ${nx && S.canWrite ? `<button class="btn sm" data-step="${v.id}|${nx[0]}">✓ ${STEP_NEXT[nx[0]]}</button>` : ''}
+      ${nx && S.canWrite ? `<button class="btn primary stepgo" data-step="${v.id}|${nx[0]}"><span class="stepck-ic" aria-hidden="true">✓</span>اضغط إذا ${STEP_NEXT[nx[0]]}</button>` : ''}
     </div>`; }).join('')
     : `<div class="empty">ما سجلت زيارات هالشهر.<br>بعد ما تزور أي محطة، سجّلها من زر "تسجيل زيارة موقع" فوق.</div>`;
 
@@ -1492,7 +1493,7 @@ async function afterLogin(session){
   if (openSetup(session)) { authView('out'); $('auth').hidden = true; return; }
   document.body.classList.toggle('is-admin', S.isAdmin);
   const {data: rows, error} = await sb.from('docs').select('scope,coll,id,data').or(`scope.eq.${S.uid},scope.eq.team`);
-  if (error) { banner('تعذّر تحميل البيانات. تأكد من الاتصال وافتح الموقع من جديد.'); return; }
+  if (error) { banner('تعذّر تحميل البيانات. تأكد من الاتصال وافتح الداشبورد من جديد.'); return; }
   S.days = {}; S.leaves = []; S.visits = []; S.stations = []; S.plans = {}; S.rules = null;
   let settings = null;
   for (const r of rows) {
