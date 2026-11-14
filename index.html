@@ -124,7 +124,7 @@
       <div id="sMine"></div>
     </div>
 
-    <div class="card">
+    <div class="card admin-only">
       <div class="card-head"><h2>توزيع المحطات على الفريق</h2></div>
       <div class="team" id="sTeam"></div>
       <div class="actions">
@@ -136,10 +136,10 @@
     </div>
 
     <div class="card">
-      <div class="card-head"><h2>محطات منطقة شرق</h2><button class="btn sm" id="addStation">+ محطة</button></div>
+      <div class="card-head"><h2>محطات منطقة شرق</h2><button class="btn sm admin-only" id="addStation">+ محطة</button></div>
       <div class="field"><label for="stSearch">بحث</label><input id="stSearch" placeholder="اسم المحطة أو رقم القطعة"></div>
       <div id="sStations"></div>
-      <details>
+      <details class="admin-only">
         <summary>+ استيراد قائمة محطات</summary>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
           <p class="small muted">سطر لكل محطة، والحقول مفصولة بفاصلة: الاسم، القطعة، الشارع، خط العرض، خط الطول. الإحداثيات اختيارية.</p>
@@ -332,12 +332,13 @@
     <h1>دوامي وبصماتي</h1>
     <p class="muted xs">فريق مراقبة محافظة العاصمة · وزارة الكهرباء والماء</p>
     <div id="authEmailBox">
-      <button class="btn primary big" id="authPasskey" type="button" style="width:100%">الدخول ببصمة الوجه أو الإصبع</button>
-      <div class="auth-or"><span>أو أول مرة من هالجهاز</span></div>
+      <button class="btn primary big" id="authPasskey" type="button" style="width:100%" hidden>الدخول ببصمة الوجه أو الإصبع</button>
+      <div class="auth-or" id="authOr" hidden><span>أو بالإيميل وكلمة السر</span></div>
       <form id="authForm">
         <div class="field"><label for="authUser">اسم العائلة أو الإيميل</label><input id="authUser" autocomplete="username webauthn" required></div>
         <div class="field"><label for="authCode">كلمة السر</label><input id="authCode" type="password" autocomplete="current-password" dir="ltr" required></div>
         <button class="btn big" id="authGo" style="width:100%">دخول</button>
+        <p class="auth-help">أول مرة؟ كلمة السر المبدئية من مدير الفريق. نسيتها؟ اطلب منه رمز جديد.</p>
       </form>
       <button type="button" class="linkbtn" id="authOtpOpen" hidden>أول مرة تدخل، أو نسيت كلمة السر؟ ادخل برمز على إيميلك</button>
     </div>

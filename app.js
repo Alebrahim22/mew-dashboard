@@ -278,8 +278,8 @@ function openDuty(date){
         <option value="off" ${type==='off'?'selected':''}>راحة (تبديل)</option>
       </select></div>
     ${e.duty ? `<div class="seg-edit">
-      <div class="row3">${FP.map(([f,l]) => `<div class="tin"><label class="flabel" for="t_${f}">${l}${e.state[f]==='exempt'?' (معفاة)':''}</label>
-        <div class="wrapper"><input type="time" id="t_${f}" value="${esc(e.rec[f]||'')}" ${ro}><button type="button" data-now="t_${f}" ${ro} aria-label="الوقت الحالي">الآن</button></div></div>`).join('')}</div>
+      <div class="fprows">${FP.map(([f,l]) => `<div class="fprow"><label class="flabel" for="t_${f}">${l}${e.state[f]==='exempt'?' <span class="xs muted">(معفاة)</span>':''}</label>
+        <input type="time" id="t_${f}" value="${esc(e.rec[f]||'')}" ${ro}><button type="button" data-now="t_${f}" ${ro} aria-label="الوقت الحالي">الآن</button></div>`).join('')}</div>
       ${e.notes.length ? `<span class="xs" style="color:var(--late)">${e.notes.join(' · ')}</span>` : ''}
       ${e.win ? `<span class="xs muted">نافذة التواجد: ${winText(e)}</span>` : ''}
     </div>` : '<p class="small muted">إذا بدّلت مع أحد، اختر نوع الخفارة فوق واحفظ، وبعدها تقدر تسجل البصمات.</p>'}
@@ -356,6 +356,7 @@ document.addEventListener('submit', async ev => {
 
 function syncLeaveForm(){
   const k=$('lKind').value;
+  if (!$('lFrom').value) $('lFrom').value = todayISO();
   $('lTimes').hidden = k!=='permission';
   $('lCovers').hidden = k!=='exemption';
   $('lToWrap').hidden = k==='permission' || k==='exemption';
@@ -633,7 +634,7 @@ function renderSites(){
   $('sMine').innerHTML = mine.length ? `<div class="stlist">${mine.map(s => `<div class="strow"><span class="sticon ${visitedIds.has(s.id)?'done':''}">${visitedIds.has(s.id)?'✓':''}</span>
       <span class="stbody"><b>${esc(s.name)}</b><span class="xs muted">${stAddr(s)}</span></span>
       ${!visitedIds.has(s.id) && S.canWrite ? `<button class="btn sm" data-visit-station="${s.id}">سجّل زيارة</button>` : ''}</div>`).join('')}</div>`
-    : '<div class="empty">ما في محطات موزعة لك هالشهر. وزّعها من قسم التوزيع تحت.</div>';
+    : `<div class="empty">ما في محطات موزعة لك هالشهر.${S.isAdmin?' وزّعها من قسم التوزيع تحت.':' مدير الفريق يوزعها.'}</div>`;
 
   const counts = T.map((_,i) => Object.values(plan).filter(x=>x===i).length);
   $('sTeam').innerHTML = T.map((name,i) => `<div class="tm"><span class="av">${esc((name||'?').trim().charAt(0))}</span><span class="stbody"><b>${esc(name)}${i===0?' (أنت)':''}</b><span class="xs muted">${counts[i]} محطة</span></span>
@@ -650,7 +651,7 @@ function renderStations(){
   $('sStations').innerHTML = list.length ? `<div class="stlist">${list.map(s => `<div class="strow">
       <button class="stbody linkish" data-station="${s.id}"><b>${esc(s.name)}</b><span class="xs muted">${esc(stAddr(s))}${s.source==='prelim'?' · مبدئية':''}</span></button>
       ${mapUrl(s)?`<a class="btn sm" href="${mapUrl(s)}" target="_blank" rel="noopener">خريطة</a>`:''}
-      <select class="assign" data-assign="${s.id}" aria-label="المهندس المسؤول" ${S.canWrite?'':'disabled'}><option value="">—</option>${T.map((n,i)=>`<option value="${i}" ${plan[s.id]===i?'selected':''}>${esc(n)}</option>`).join('')}</select>
+      ${S.isAdmin ? `<select class="assign" data-assign="${s.id}" aria-label="المهندس المسؤول" ${S.canWrite?'':'disabled'}><option value="">—</option>${T.map((n,i)=>`<option value="${i}" ${plan[s.id]===i?'selected':''}>${esc(n)}</option>`).join('')}</select>` : (plan[s.id]!=null && T[plan[s.id]] ? `<span class="assign-name">${esc(T[plan[s.id]])}</span>` : '')}
     </div>`).join('')}</div>`
     : `<div class="empty">${q?'ما في نتائج.':'ما في محطات مسجلة. أضفها وحدة وحدة أو استورد القائمة الرسمية لما توصلك.'}</div>`;
 }
@@ -1161,15 +1162,17 @@ async function offerPasskey(){
   $('pkOffer').hidden = has || skipped;
 }
 $('pkYes').onclick = async () => {
-  try { const {error} = await sb.auth.registerPasskey(); if (error) throw error; $('pkOffer').hidden = true; toast('تم. المرة الجاية ادخل ببصمة الوجه أو الإصبع'); }
+  try { const {error} = await sb.auth.registerPasskey(); if (error) throw error; $('pkOffer').hidden = true; try { localStorage.setItem('mew.pkReg','1'); } catch(e){} toast('تم. المرة الجاية ادخل ببصمة الوجه أو الإصبع'); }
   catch(e) { toast('ما تم التفعيل. جرّب مرة ثانية'); }
 };
 $('pkNo').onclick = () => { $('pkOffer').hidden = true; try { localStorage.setItem('mew.pkSkip','1'); } catch(e){} };
 $('authPasskey').onclick = async () => {
   $('authMsg').textContent = '';
   try { const {error} = await sb.auth.signInWithPasskey(); if (error) throw error; }
-  catch(e) { $('authMsg').textContent = 'ما قدرنا ندخلك بالبصمة. إذا أول مرة تدخل من هالجهاز، ادخل باسم العائلة والرمز.'; }
+  catch(e) { $('authMsg').textContent = 'ما قدرنا ندخلك بالبصمة. ادخل بالإيميل وكلمة السر.'; }
 };
+{ let pk = false; try { pk = localStorage.getItem('mew.pkReg')==='1'; } catch(e){}
+  if (pk && window.PublicKeyCredential) { $('authPasskey').hidden = false; $('authOr').hidden = false; } }
 $('authForm').addEventListener('submit', async ev => {
   ev.preventDefault();
   const user = $('authUser').value.trim(), code = $('authCode').value.trim(); if (!user || !code) return;
