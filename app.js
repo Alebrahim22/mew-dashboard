@@ -728,18 +728,23 @@ async function drawReport(v, nPhotos=0){
   put(v.block, 777, 644, 155);
   put(v.street, 605, 644, 155);
   put(v.stationName, 434, 644, 160);
-  put(v.notes, 199, 644, 280, 18);
+  // top notes cell: fixed wording; any free-text notes go into the description below
+  const OK_LINES = new Set([OBS[0], OBS[1], OBS[3]]);
+  const extraNotes = (v.notes||'').trim();
+  const issues = (v.desc||'').split(/\n+/).map(s=>s.trim()).filter(s => s && !OK_LINES.has(s)).length > 0 || !!extraNotes;
+  put(issues ? 'يوجد ملاحظات مذكورة أدناه' : 'لا يوجد ملاحظات', 199, 644, 280, 18);
   // description on the dotted lines
   x.font = F(20); x.textAlign = 'right';
   const lines = [];
-  for (const para of ((v.desc||'') + (nPhotos ? '\nمرفق '+(nPhotos===1?'صورة واحدة':nPhotos+' صور')+' للموقع' : '')).split(/\n+/)) {
+  const descText = issues ? (v.desc||'').split('\n').map(s => s.trim()===OBS[0] ? 'المحطة سليمة خارجياً' : s).join('\n') : (v.desc||'');
+  for (const para of (descText + (extraNotes ? '\n'+extraNotes : '') + (nPhotos ? '\nمرفق '+(nPhotos===1?'صورة واحدة':nPhotos+' صور')+' للموقع' : '')).split(/\n+/)) {
     let cur = '';
     for (const w of para.split(/\s+/)) { const t = cur ? cur+' '+w : w; if (x.measureText(t).width > 985 && cur) { lines.push(cur); cur = w; } else cur = t; }
     if (cur) lines.push(cur);
   }
   const y0 = 845, step = 28.4;
   lines.slice(0,12).forEach((l,i) => x.fillText(l, 1058, y0 + i*step));
-  put(S.settings.fullName || S.settings.name, 727, 1218, 195, 17);
+  // employee name is left blank: it is added with the signature in the e-correspondence system
   return c;
 }
 let reportCanvas = null, reportVisit = null;
