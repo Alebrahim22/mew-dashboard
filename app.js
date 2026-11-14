@@ -371,7 +371,7 @@ function renderList(evs){
     else if (e.status!=='excused') fps = FP.map(([f]) => e.rec[f] ? `<span>${FPN[f]} ${to12(e.rec[f])}</span>` : e.state[f]==='missing' ? `<span class="x">✕ ${FPN[f]}</span>` : e.state[f]==='exempt' ? `<span>${FPN[f]} معفاة</span>` : '').join('');
     const d = parseISO(e.date);
     return `<button class="drow" data-open="${e.date}"><span class="date"><b>${d.getDate()}</b><span>${DAYS[d.getDay()].replace('ال','')}</span></span>
-      <span class="body"><span class="chips"><span class="chip" style="--c:var(--ink);--cbg:var(--sunk)">${SHIFT_IC[e.k]} ${SHIFT[e.k].n}</span>${statusChips(e)}${e.visit?'<span class="chip" style="--c:var(--primary);--cbg:var(--primary-soft)">زيارة موقع</span>':''}</span>${fps?`<span class="fprow">${fps}</span>`:''}${e.rec.note?`<span class="xs muted">${esc(e.rec.note)}</span>`:''}</span><span class="chev">‹</span></button>`;
+      <span class="body"><span class="chips"><span class="chip" style="--c:var(--ink);--cbg:var(--sunk)">${SHIFT_IC[e.k]} ${SHIFT[e.k].n}</span>${statusChips(e)}${e.visit?'<span class="chip" style="--c:var(--primary);--cbg:var(--primary-soft)">زيارة موقع</span>':''}${e.visit && e.visit.exemption && e.visit.exemption!=='none' ? ((e.visit.steps||{}).diwanOk ? '<span class="chip" style="--c:var(--ok);--cbg:var(--ok-bg)">الإعفاء معتمد</span>' : '<span class="chip" style="--c:var(--late);--cbg:var(--late-bg)">الإعفاء بانتظار الديوان</span>') : ''}</span>${fps?`<span class="fprow">${fps}</span>`:''}${e.rec.note?`<span class="xs muted">${esc(e.rec.note)}</span>`:''}</span><span class="chev">‹</span></button>`;
   }).join('') + more;
 }
 
@@ -1332,10 +1332,26 @@ function parseFpText(txt){
   if (tms.length) { const m = tms[tms.length-1]; time = `${pad(+m[1])}:${m[2]}`; sec = m[3] || ''; }
   const out = /خروج|الخروج|انصراف/.test(t), inn = /دخول|الدخول|دخولك|حضور/.test(t);
   const kind = out && !inn ? 'out' : inn && !out ? 'in' : out ? 'out' : '';
-  // Diwan approval screenshot: an official-task / partial-exemption request
-  const diwan = /ديوان|مهمة\s*رسمية|مهمه\s*رسميه|إعفاء|اعفاء|معفى|إعفاء\s*جزئي/.test(t);
-  const ex = /انصراف|الانصراف|خروج/.test(t) && !/حضور|تواجد/.test(t) ? 'out' : /حضور|تواجد|دخول/.test(t) ? 'inPres' : '';
-  return {date, time, sec, kind, diwan, ex};
+  const approvals = parseDiwan(t);
+  const isDiwanApp = /الحضور\s*والانصراف|راحة\s*بين\s*النوبات|خروج\s*نوبة|لا\s*يوجد\s*بصمة/.test(t);
+  return {date, time, sec, kind, approvals, isDiwanApp, diwan: approvals.length > 0, ex: approvals[0]?.ex || '', diwanDate: approvals[0]?.date || ''};
+}
+// Diwan attendance list: each approved day reads «(إعفاء جزئي في الانصراف - سبب الإعفاء/ ... - ملاحظات/ ...)» next to «اليوم - DD-MM-YYYY»
+function parseDiwan(t){
+  const dateRe = /(\d{1,2})\s*-\s*(\d{1,2})\s*-\s*(20\d{2})|(20\d{2})\s*-\s*(\d{1,2})\s*-\s*(\d{1,2})/g;
+  const iso = m => m[3] ? `${m[3]}-${pad(+m[2])}-${pad(+m[1])}` : `${m[4]}-${pad(+m[5])}-${pad(+m[6])}`;
+  const out = [], re = /[إا]عفاء\s*جزئ[يى]/g; let m;
+  while ((m = re.exec(t))) {
+    const start = m.index, close = t.indexOf(')', start), end = close > 0 ? close : Math.min(t.length, start + 220);
+    const block = t.slice(start, end);
+    const what = (block.match(/جزئ[يى]\s*(?:في|فى)\s*([^\-–(]{2,40})/) || ['', ''])[1];
+    const ex = /صراف|خروج/.test(what) ? 'out' : /دخول|حضور|تواجد/.test(what) ? 'inPres' : '';
+    let dm = [...block.matchAll(dateRe)][0];
+    if (!dm) dm = [...t.slice(end).matchAll(dateRe)][0];
+    const station = (block.replace(/\s+/g,' ').match(/الكشف\s*على\s*(?:محطة|محطتي)?\s*(.+?)(?:\s+في\s|$)/) || ['', ''])[1].trim();
+    out.push({date: dm ? iso(dm) : '', ex, station});
+  }
+  return out;
 }
 // which duty a punch at (date, time) belongs to: same day, or the previous night shift
 function fpShiftDate(date, time){
@@ -1400,11 +1416,17 @@ async function openFpFile(file){
     fpGuess = g;
     $('fpDate').value = g.date; $('fpTime').value = g.time;
     if (g.diwan) {
-      $('fpType').value = 'diwan'; if (g.ex) $('fpEx').value = g.ex;
-      else { const v = g.date && diwanVisit(g.date); if (v && v.exemption && v.exemption !== 'none') $('fpEx').value = v.exemption; }
-      $('fpSub').textContent = g.date ? 'هذي موافقة الديوان. تأكد من التاريخ ونوع الإعفاء واضغط سجّل.' : 'هذي موافقة الديوان. ما قدرت أقرأ التاريخ، اختاره بنفسك.';
+      // several approved days can be on one screenshot: take the newest one not recorded yet
+      const list = g.approvals.filter(a => a.date).sort((a,b) => a.date < b.date ? 1 : -1);
+      const pick = list.find(a => !(S.days[a.date]||{}).diwan) || list[0] || g.approvals[0];
+      $('fpType').value = 'diwan'; $('fpDate').value = pick.date || '';
+      if (pick.ex) $('fpEx').value = pick.ex;
+      else { const v = pick.date && diwanVisit(pick.date); if (v && v.exemption && v.exemption !== 'none') $('fpEx').value = v.exemption; }
+      $('fpSub').textContent = !pick.date ? 'هذي موافقة الديوان. ما قدرت أقرأ التاريخ، اختاره بنفسك.'
+        : (list.length > 1 ? `لقيت ${list.length} موافقات بالصورة، اخترت ${fmtDate(pick.date,{weekday:'long',day:'numeric',month:'short'})}. ` : 'هذي موافقة الديوان. ') + 'تأكد من التاريخ ونوع الإعفاء واضغط سجّل.';
       fpRefresh(); return;
     }
+    if (g.isDiwanApp) { $('fpSub').textContent = 'هذي صورة من الديوان بس ما فيها «إعفاء جزئي» للحين. ارفعها بعد ما تطلع الموافقة.'; $('fpDate').value = ''; $('fpTime').value = ''; fpRefresh(); return; }
     const c = fpClassify(g);
     if (c) $('fpType').value = c.f; else $('fpType').value = g.kind === 'out' ? 'out' : 'in';
     const miss = [!g.date && 'التاريخ', !g.time && 'الوقت', !g.kind && 'النوع'].filter(Boolean);
@@ -1457,7 +1479,7 @@ $('fpF').onsubmit = async e => {
       .catch(() => toast('انحفظت البصمة، بس الصورة ما انحفظت في الدرايف'));
   }
 };
-window.__fp = {parseFpText, fpShiftDate, fpClassify, S, render, takeSharedImage, renderInstallTip};
+window.__fp = {parseFpText, fpShiftDate, fpClassify, ocrText, S, render, takeSharedImage, renderInstallTip};
 
 S.assets = {
   async upload(blob){ const v = visitFromForm(); const r = await driveUpload(blob, `صورة ${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`, 'image/jpeg', v); driveCache[r.id] = blob; return {id:r.id, url:r.url}; },
