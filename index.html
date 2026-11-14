@@ -264,6 +264,14 @@
     </div>
     <div class="field"><span class="flabel">ملاحظات الكشف (علّم على اللي تبيه ينذكر بالتقرير)</span><div class="obs" id="v_obs"></div></div>
     <div class="field"><label for="v_desc">ملاحظة إضافية بكتابتك (اختياري)</label><textarea id="v_desc" rows="2"></textarea></div>
+    <div class="field"><label for="v_stType">نوع المحطة</label><select id="v_stType"><option value="sub">محطة تحويل ثانوية</option><option value="rmu">وحدة توزيع متكاملة</option></select></div>
+    <div class="field">
+      <label class="obsck"><input type="checkbox" id="v_full"><span>إرفاق نموذج الكشف الشامل <span class="xs muted">(اختياري)</span></span></label>
+      <div class="fullbox" id="v_fullBox" hidden>
+        <span class="xs muted">نعبّي ٤ بنود بس، والباقي ينحط عليه شرطة لأنه غير مطلوب.</span>
+        <div id="v_fullRows"></div>
+      </div>
+    </div>
     <div class="field"><span class="flabel">صور الموقع</span><div class="photos" id="v_photos"></div>
       <label class="btn primary" for="v_cam" style="text-align:center;display:grid;place-items:center">📷 صوّر</label><input type="file" id="v_cam" accept="image/*" capture="environment" hidden>
       <label class="btn" for="v_file" style="text-align:center;display:grid;place-items:center">+ من الاستديو</label><input type="file" id="v_file" accept="image/*" multiple hidden>
@@ -285,6 +293,7 @@
     <div class="grab"></div>
     <div class="sheet-head"><div><h2>نموذج انتقال للعمل الميداني</h2><div class="xs muted">معبّأ من بيانات الزيارة. التواقيع تبقى بخط اليد.</div></div><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <img id="reportImg" alt="نموذج التقرير معبّأ" style="width:100%;border-radius:8px;border:1px solid var(--line);background:#fff">
+    <div id="reportExtra"></div>
     <div class="actions" id="reportBtns">
       <button class="btn primary" id="savePdf">حفظ PDF</button>
       <button class="btn" id="saveJpg">حفظ صورة JPG</button>
