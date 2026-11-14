@@ -45,7 +45,10 @@ Deno.serve(async (req) => {
     if (cur) return json({ error: "idx_taken" }, 400);
     const { error } = await admin.from("members").insert({ idx, name: "", email, role: "member" });
     if (error) return json({ error: /email/.test(error.message) ? "email_taken" : error.message }, 400);
-    return json({ ok: true });
+    const code = newCode();
+    const r = await admin.auth.admin.createUser({ email, password: code, email_confirm: true, user_metadata: { pw_set: false } });
+    if (r.error) return json({ error: r.error.message }, 400);
+    return json({ ok: true, code });
   }
   if (b.action !== "upsert") return json({ error: "bad_action" }, 400);
 
@@ -57,6 +60,14 @@ Deno.serve(async (req) => {
     role: b.role === "admin" || (b.role === undefined && cur?.role === "admin") ? "admin" : "member",
     email: cur?.email ?? `m${idx}-${crypto.randomUUID().slice(0, 8)}@mew-team.app`,
   };
+  if (b.reset && cur) {
+    const u = await findUser(cur.email);
+    if (!u) return json({ error: "no_user" }, 400);
+    const code = newCode();
+    const r = await admin.auth.admin.updateUserById(u.id, { password: code, user_metadata: { ...(u.user_metadata ?? {}), pw_set: false } });
+    if (r.error) return json({ error: r.error.message }, 400);
+    return json({ ok: true, code });
+  }
   if (!row.name || !row.username) return json({ error: "name_and_username_required" }, 400);
   const { error } = await admin.from("members").upsert(row);
   if (error) return json({ error: /login_key/.test(error.message) ? "username_taken" : error.message }, 400);
@@ -65,8 +76,8 @@ Deno.serve(async (req) => {
   const u = await findUser(row.email);
   if (!u || b.reset) {
     code = newCode();
-    const r = u ? await admin.auth.admin.updateUserById(u.id, { password: code })
-                : await admin.auth.admin.createUser({ email: row.email, password: code, email_confirm: true });
+    const r = u ? await admin.auth.admin.updateUserById(u.id, { password: code, user_metadata: { ...(u.user_metadata ?? {}), pw_set: false } })
+                : await admin.auth.admin.createUser({ email: row.email, password: code, email_confirm: true, user_metadata: { pw_set: false } });
     if (r.error) return json({ error: r.error.message }, 400);
   }
   return json({ ok: true, code });

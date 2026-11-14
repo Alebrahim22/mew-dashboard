@@ -985,8 +985,8 @@ async function handOff(){
 function renderMembers(){
   const el = $('stTeam'); if (!el) return;
   el.innerHTML = S.members.map(m => `<div class="mrow"><div><b>${esc(memberLabel(m))}</b> <span class="xs muted">· ${m.username?esc(m.username):'ما دخل للحين'}${m.role==='admin'?' · مدير':''}</span></div>
-    ${S.isAdmin ? `<div class="mbtns">${(m.email||'').endsWith('@mew-team.app')?`<button type="button" class="btn sm" data-mreset="${m.idx}">رمز جديد</button>`:''}${m.role!=='admin'?`<button type="button" class="btn sm danger" data-mdel="${m.idx}">حذف</button>`:''}</div>` : ''}</div>`).join('')
-    + (S.isAdmin ? `<div class="madd"><input id="mEmail" type="email" dir="ltr" placeholder="إيميل الزميل"><button type="button" class="btn sm primary" id="mAdd">إضافة</button></div><p class="xs muted">يدخل أول مرة برمز يوصله على إيميله، ويختار اسمه وكلمة السر بنفسه.</p><p class="xs muted" id="mCode" role="status"></p>` : '');
+    ${S.isAdmin ? `<div class="mbtns"><button type="button" class="btn sm" data-mreset="${m.idx}">رمز جديد</button>${m.role!=='admin'?`<button type="button" class="btn sm danger" data-mdel="${m.idx}">حذف</button>`:''}</div>` : ''}</div>`).join('')
+    + (S.isAdmin ? `<div class="madd"><input id="mEmail" type="email" dir="ltr" placeholder="إيميل الزميل"><button type="button" class="btn sm primary" id="mAdd">إضافة</button></div><p class="xs muted">بعد الإضافة يطلع لك رمز دخول مبدئي ترسله له. يدخل فيه بإيميله، ويختار اسمه وكلمة سر جديدة أول مرة.</p><p class="xs muted" id="mCode" role="status"></p>` : '');
 }
 async function membersCall(body){
   const {data, error} = await sb.functions.invoke('members', {body});
@@ -994,18 +994,18 @@ async function membersCall(body){
   return data;
 }
 async function reloadMembers(){ const {data} = await sb.from('members').select('*').order('idx'); S.members = data||[]; S.settings.team = teamNames(); renderMembers(); render(); }
-function showCode(name, user, code){ $('mCode').innerHTML = `رمز <b>${esc(name)}</b>: <b dir="ltr" style="font-size:1.1rem;letter-spacing:2px">${code}</b><br>يدخل باسم العائلة «${esc(user)}» وهذا الرمز، وبعدها يفعّل البصمة.`; }
+function showCode(name, user, code){ $('mCode').innerHTML = `رمز <b>${esc(name)}</b>: <b dir="ltr" style="font-size:1.1rem;letter-spacing:2px">${code}</b><br>يدخل بـ «${esc(user)}» وهذا الرمز، ويختار كلمة سر جديدة أول ما يدخل.`; }
 document.addEventListener('click', async ev => {
   const t = ev.target.closest('[data-mreset],[data-mdel],#mAdd'); if (!t || !S.isAdmin) return;
   try {
     if (t.id==='mAdd') {
       const email = $('mEmail').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('اكتب إيميل صحيح'); return; }
       const idx = S.members.reduce((a,m)=>Math.max(a,m.idx),-1)+1;
-      t.disabled = true; await membersCall({action:'invite', idx, email});
-      await reloadMembers(); toast('تمت إضافة '+email);
+      t.disabled = true; const r = await membersCall({action:'invite', idx, email});
+      await reloadMembers(); if (r.code) showCode(email, email, r.code); else toast('تمت إضافة '+email);
     } else if (t.dataset.mreset) {
       const m = S.members.find(x=>x.idx===+t.dataset.mreset); t.disabled = true;
-      const r = await membersCall({action:'upsert', idx:m.idx, reset:true}); renderMembers(); showCode(m.name, m.username, r.code);
+      const r = await membersCall({action:'upsert', idx:m.idx, reset:true}); renderMembers(); showCode(m.name||m.email, m.username||m.email, r.code);
     } else if (t.dataset.mdel) {
       const m = S.members.find(x=>x.idx===+t.dataset.mdel);
       if (t.dataset.sure!=='1') { t.dataset.sure='1'; t.textContent='متأكد؟'; return; }
@@ -1119,6 +1119,7 @@ $('setupForm').addEventListener('submit', async ev => {
       if (error) throw new Error(/login_key|unique/i.test(error.message) ? 'اسم العائلة هذا مستخدم لعضو ثاني. أضف حرف أو الاسم الثاني.' : 'ما انحفظت البيانات.');
     }
     if (!$('setupPw').hidden) {
+      if (['123456','12345678','000000','111111'].includes($('suPw').value)) throw new Error('اختر كلمة سر غير الرمز المبدئي.');
       const {error} = await sb.auth.updateUser({password: $('suPw').value, data: {pw_set: true}});
       if (error) throw new Error(/weak|short|6/i.test(error.message) ? 'كلمة السر قصيرة.' : /same/i.test(error.message) ? 'اختر كلمة سر غير القديمة.' : 'ما انحفظت كلمة السر.');
     }
