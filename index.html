@@ -19,9 +19,12 @@
 
 <header class="hdr">
   <div class="hdr-in">
-    <div>
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>
+      <div>
       <h1>دوامي وبصماتي</h1>
       <small id="who">وزارة الكهرباء والماء</small>
+    </div>
     </div>
     <div class="hdr-actions">
       <button class="iconbtn" id="signOut" aria-label="تسجيل خروج" title="تسجيل خروج"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg></button>
@@ -43,7 +46,11 @@
   <!-- HOME -->
   <section data-view="home" style="display:flex;flex-direction:column;gap:16px">
     <div class="card hero" id="hero"></div>
-    <button type="button" class="btn big" id="fpUpBtn" hidden><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> ارفع صورة البصمة</button>
+    <button type="button" class="cta" id="fpUpBtn" hidden>
+      <span class="cta-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+      <span class="cta-tx"><b>ارفع صورة البصمة</b><small>نقرأ التاريخ والوقت ونوع البصمة تلقائياً</small></span>
+      <span class="cta-go" aria-hidden="true">‹</span>
+    </button>
     <input type="file" id="fpFile" accept="image/*" hidden>
     <div class="periodbar">
       <div class="seg-ctl" id="modeCtl" role="group" aria-label="الفترة"><label><input type="radio" name="pmode" value="month">الشهر</label><label><input type="radio" name="pmode" value="year">السنة</label></div>

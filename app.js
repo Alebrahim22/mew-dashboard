@@ -170,6 +170,7 @@ function slotHTML(e, f, nextKey){
 function renderHero(){
   const h = $('hero');
   const cur = currentShift();
+  h.classList.toggle('live', !!cur); h.classList.toggle('rest', !cur);
   if (cur) {
     const e = evalDay(cur), k = e.k;
     const s0 = startMs(cur,k), pct = Math.min(100, Math.max(0, (Date.now()-s0)/(SHIFT_H*36000)));
@@ -461,7 +462,7 @@ function renderOverview(){
     <div class="legend">${segs.map(s=>`<span><i style="--c:var(${s[2]})"></i>${s[1]} <b class="num">${st[s[0]]}</b></span>`).join('')}</div>` : ''}
   </div>`;
 
-  const tile = (l,v,s,c,bad) => `<div class="kpi"><span class="top"><i style="background:var(${v?c:'--line'})"></i>${l}</span><span class="v">${v}</span><span class="s">${s}</span></div>`;
+  const tile = (l,v,s,c,bad) => `<div class="kpi" style="--k:var(${v?c:'--rest'})"><span class="top"><i style="background:var(${v?c:'--line'})"></i>${l}</span><span class="v">${v}</span><span class="s">${s}</span></div>`;
   h += `<div class="kpis">
     ${tile('التأخير', st.late, st.lateMin ? 'المجموع '+fmtM(st.lateMin) : 'ما في تأخير', '--late')}
     ${tile('بصمات ناقصة', st.missFp, st.missFp ? 'في '+st.missShifts+' خفارة' : 'كل البصمات مسجلة', '--miss')}
@@ -1051,7 +1052,7 @@ $('fpF').onsubmit = async e => {
       .catch(() => toast('انحفظت البصمة، بس الصورة ما انحفظت في الدرايف'));
   }
 };
-window.__fp = {parseFpText, fpShiftDate, fpClassify, S};
+window.__fp = {parseFpText, fpShiftDate, fpClassify, S, render};
 
 S.assets = {
   async upload(blob){ const v = visitFromForm(); const r = await driveUpload(blob, `صورة ${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`, 'image/jpeg', v); driveCache[r.id] = blob; return {id:r.id, url:r.url}; },
