@@ -681,19 +681,22 @@ document.addEventListener('click', ev => {
 /* ---------- visit photos + checklist ---------- */
 const OBS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','السور الخارجي سليم','السور الخارجي متضرر وبحاجة إلى صيانة','القفل سليم','القفل تالف أو غير موجود','باب المحطة غير محكم الإغلاق','يوجد نفايات بجانب المحطة وتم اللازم','يوجد أنقاض أمام المحطة أو حولها','يوجد كتابات أو ملصقات على جدران المحطة','يوجد تجمع مياه حول المحطة','لوحة اسم المحطة غير موجودة أو غير واضحة','يوجد سيارات أو عوائق تسد مدخل المحطة','يوجد تعديات على المحطة','تم إبلاغ الجهة المختصة بالملاحظات'];
 let vPhotos = [];   // {id?, url, blob?, busy?}
+// only problems are listed; anything not ticked counts as fine
+const NEG = [[2,'السور متضرر'],[4,'القفل تالف أو مفقود'],[5,'الباب غير محكم الإغلاق'],[6,'نفايات (وتم اللازم)'],[7,'أنقاض'],[8,'كتابات أو ملصقات'],[9,'تجمع مياه'],[10,'لوحة الاسم مفقودة أو غير واضحة'],[11,'عوائق تسد المدخل'],[12,'تعديات'],[13,'تم إبلاغ الجهة المختصة']];
+const negHtml = checks => NEG.map(([i,l]) => `<label class="negck"><input type="checkbox" value="${i}" ${checks.includes(OBS[i])?'checked':''}><span>${l}</span></label>`).join('');
+const readNeg = box => { const c = [...document.querySelectorAll(box+' input:checked')].map(i => OBS[+i.value]); return c.filter(x => x !== OBS[13]).length ? c : [OBS[0], ...c]; };
 function setObs(v){
   let checks = v.checks, extra = v.extra;
   if (!checks) { const lines = (v.desc||'').split(/\n+/).map(s=>s.trim()).filter(Boolean); checks = lines.filter(l => OBS.includes(l)); extra = lines.filter(l => !OBS.includes(l)).join('\n'); }
-  $('v_obs').innerHTML = OBS.map((o,i) => `<label class="obsck"><input type="checkbox" value="${i}" ${checks.includes(o)?'checked':''}><span>${o}</span></label>`).join('');
+  $('v_obs').innerHTML = negHtml(checks);
   $('v_desc').value = extra||'';
 }
-function getObs(){ return [...document.querySelectorAll('#v_obs input:checked')].map(i => OBS[+i.value]); }
+function getObs(){ return readNeg('#v_obs'); }
 function setObs2(s){
-  const checks = s.checks || [];
-  $('v2_obs').innerHTML = OBS.map((o,i) => `<label class="obsck"><input type="checkbox" value="${i}" ${checks.includes(o)?'checked':''}><span>${o}</span></label>`).join('');
+  $('v2_obs').innerHTML = negHtml(s.checks || []);
   $('v2_desc').value = s.extra||'';
 }
-function getObs2(){ return [...document.querySelectorAll('#v2_obs input:checked')].map(i => OBS[+i.value]); }
+function getObs2(){ return readNeg('#v2_obs'); }
 const vNames = v => [v.stationName, v.s2 && v.s2.stationName].filter(Boolean).join(' و ');
 const stationsOf = v => [{stationName:v.stationName, area:v.area, block:v.block, street:v.street, stType:v.stType, desc:v.desc, checks:v.checks, extra:v.extra, full:v.full},
   ...(v.s2 && v.s2.stationName ? [v.s2] : [])];

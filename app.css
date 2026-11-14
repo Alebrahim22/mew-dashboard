@@ -446,3 +446,9 @@ button.kpi:active{transform:scale(.98)}
 .att-ring .ring{width:96px;height:96px;flex:none}
 .btn.stepgo{background:linear-gradient(135deg,#0e9f6e,#14b8a6);color:#fff;border:0;box-shadow:0 6px 16px -6px rgba(14,159,110,.6)}
 .btn.stepgo:active{transform:scale(.98)}
+.negs{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.negck{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:var(--bg);font-size:.88rem;cursor:pointer;min-height:40px}
+.negck input{position:absolute;opacity:0;pointer-events:none}
+.negck:has(input:checked){border-color:var(--late);background:var(--late-bg);color:var(--late);font-weight:600}
+.negck:has(input:checked)::before{content:"✕";font-size:.75rem}
+.negck:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
