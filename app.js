@@ -203,6 +203,46 @@ function renderHero(){
 }
 const CAM_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 
+/* yearly fingerprint log with proof screenshots */
+let logYear = new Date().getFullYear();
+function renderLog(){
+  const today = todayISO(), rows = [];
+  for (let d = logYear+'-01-01'; d <= logYear+'-12-31' && d <= today; d = addDays(d,1)) {
+    const e = evalDay(d); if (!e.duty || e.status==='future' || e.status==='untracked') continue; rows.push(e);
+  }
+  const sum = {att:0, late:0, lateMin:0, miss:0, absent:0, proofs:0};
+  for (const e of rows) { if (e.status==='absent') sum.absent++; else if (e.status!=='excused') sum.att++; if (e.lateMin) { sum.late++; sum.lateMin += e.lateMin; } sum.miss += e.missing||0; sum.proofs += Object.keys(e.rec.proof||{}).length; }
+  $('logTitle').textContent = 'سجل البصمات ' + logYear;
+  $('logSub').textContent = (S.settings.fullName || S.settings.name || '') + ' · نوبة ' + (S.settings.crew||'D');
+  $('logSum').innerHTML = [['حضور',sum.att],['تأخير',sum.late+(sum.lateMin?' ('+fmtM(sum.lateMin)+')':'')],['بصمات ناقصة',sum.miss],['غياب',sum.absent],['صور إثبات',sum.proofs]]
+    .map(([l,v]) => `<div><span class="xs muted">${l}</span><b class="num">${v}</b></div>`).join('');
+  if (!rows.length) { $('logBody').innerHTML = '<div class="empty">ما في خفارات مسجلة في هالسنة.</div>'; return; }
+  let h = '', curM = -1;
+  for (const e of rows.reverse()) {
+    const m = +e.date.slice(5,7)-1;
+    if (m !== curM) { if (curM !== -1) h += '</div>'; curM = m; h += `<h3 class="logm">${MONTHS[m]}</h3><div class="logtable">`; }
+    const cell = f => {
+      const t = e.rec[f], st = e.state[f], pr = (e.rec.proof||{})[f];
+      const v = t ? to12(t) : st==='exempt' ? 'معفاة' : st==='missing' ? '✕' : '—';
+      return `<span class="lc ${st==='missing'?'x':''}">${esc(v)}${pr ? ` <button type="button" class="proof" data-proof="${esc(pr)}" data-proof-t="${esc(FPN[f]+' '+fmtDate(e.date,{day:'numeric',month:'short'}))}" aria-label="صورة الإثبات">${CAM_IC}</button>` : ''}</span>`;
+    };
+    h += `<div class="logrow" role="button" tabindex="0" data-open="${e.date}"><span class="ld"><b>${+e.date.slice(8)}</b><small>${SHIFT[e.k].n}</small></span>${FP.map(([f]) => cell(f)).join('')}<span class="lst">${e.status==='excused' ? KIND[e.excuseKind] : e.status==='absent' ? 'غياب' : e.lateMin ? 'تأخير '+fmtM(e.lateMin) : e.missing ? 'ناقصة' : 'مكتملة'}</span></div>`;
+  }
+  h += '</div>';
+  $('logBody').innerHTML = `<div class="logtable"><div class="logrow head"><span class="ld">اليوم</span>${FP.map(([,l]) => `<span class="lc">${l}</span>`).join('')}<span class="lst">الحالة</span></div></div>` + h;
+}
+$('logOpen').onclick = () => { logYear = view.y; renderLog(); $('logSheet').hidden = false; };
+$('logPrint').onclick = () => { document.body.classList.add('printing-log'); window.print(); setTimeout(() => document.body.classList.remove('printing-log'), 500); };
+window.addEventListener('afterprint', () => document.body.classList.remove('printing-log'));
+document.addEventListener('click', async ev => {
+  const y = ev.target.closest('[data-logyear]'); if (y) { logYear += +y.dataset.logyear; renderLog(); return; }
+  const pb = ev.target.closest('[data-proof]'); if (!pb) return;
+  ev.stopPropagation(); ev.preventDefault();
+  $('proofTitle').textContent = 'إثبات بصمة ' + pb.dataset.proofT; $('proofBody').textContent = 'جاري التحميل من الدرايف…'; $('proofSheet').hidden = false;
+  try { const blob = await driveBlob(pb.dataset.proof); $('proofBody').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="صورة الإثبات" style="width:100%;border-radius:12px">`; }
+  catch(e) { $('proofBody').textContent = 'ما قدرت أحمّل الصورة من الدرايف.'; }
+}, true);
+
 /* PWA: service worker, install tip, images shared from other apps */
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -373,7 +413,7 @@ document.addEventListener('click', async ev => {
   if (t.closest('[data-close]')) { t.closest('.sheet-bg').hidden = true; return; }
   if (t.classList.contains('sheet-bg')) { t.hidden = true; return; }
   if (t.closest('[data-open-settings]')) { openSettings(); return; }
-  const op = t.closest('[data-open]'); if (op) { openDuty(op.dataset.open); return; }
+  const op = t.closest('[data-open]'); if (op) { $('logSheet').hidden = true; openDuty(op.dataset.open); return; }
   const nw = t.closest('[data-now]'); if (nw) { $(nw.dataset.now).value = nowHM(); return; }
   const pu = t.closest('[data-punch]');
   if (pu) { const [date,f] = pu.dataset.punch.split('|'); const r = recFor(date); r[f] = nowHM(); r.updatedAt = new Date().toISOString();

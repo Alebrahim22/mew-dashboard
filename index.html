@@ -82,6 +82,7 @@
         <span><i style="--c:var(--primary)"></i>خفارة قادمة</span>
       </div>
     </div>
+    <button type="button" class="logbtn" id="logOpen"><span class="tip-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg></span><span class="tip-tx"><b>سجل البصمات السنوي</b><small>كل بصماتك مع صور الإثبات، وتقدر تحفظه PDF</small></span><span class="chev">‹</span></button>
     <div class="card">
       <div class="card-head"><h2>خفارات الشهر</h2><span class="xs muted">اضغط على الخفارة لتسجيل البصمات</span></div>
       <div class="dlist" id="dlist"></div>
@@ -218,6 +219,22 @@
     <p class="xs muted" id="fpNote"></p>
     <button type="submit" class="btn primary big" id="fpSave" disabled>سجّل البصمة</button>
   </form>
+</div>
+
+<!-- yearly fingerprint log -->
+<div class="sheet-bg" id="logSheet" hidden>
+  <div class="sheet logsheet">
+    <div class="grab"></div>
+    <div class="sheet-head"><div><h2 id="logTitle">سجل البصمات</h2><div class="xs muted" id="logSub"></div></div>
+      <div class="actions noprint"><button type="button" class="iconbtn" data-logyear="-1" aria-label="السنة السابقة"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button><button type="button" class="iconbtn" data-logyear="1" aria-label="السنة التالية"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
+    <div id="logSum" class="lvline"></div>
+    <button type="button" class="btn sm noprint" id="logPrint" style="align-self:flex-start">حفظ PDF أو طباعة</button>
+    <div id="logBody"></div>
+  </div>
+</div>
+<div class="sheet-bg" id="proofSheet" hidden>
+  <div class="sheet"><div class="sheet-head"><h2 id="proofTitle">صورة الإثبات</h2><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div id="proofBody" class="muted small">جاري التحميل…</div></div>
 </div>
 
 <!-- visit editor -->

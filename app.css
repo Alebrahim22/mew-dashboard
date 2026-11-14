@@ -409,3 +409,29 @@ button.kpi:active{transform:scale(.98)}
 .tip-tx{display:flex;flex-direction:column;gap:6px;min-width:0}
 .tip-tx small{color:var(--muted);font-size:.82rem;line-height:1.6}
 .brand h1{white-space:nowrap}
+
+/* yearly log */
+.logbtn{display:flex;align-items:center;gap:12px;width:100%;text-align:right;border:1px solid var(--line);background:var(--surface);border-radius:18px;padding:12px 14px;box-shadow:var(--shadow)}
+.logbtn .chev{margin-inline-start:auto;color:var(--muted);font-size:1.3rem}
+.logsheet{gap:12px}
+.logm{font-size:.9rem;margin:10px 0 4px;color:var(--primary)}
+.logtable{display:flex;flex-direction:column}
+.logrow{cursor:pointer;display:grid;grid-template-columns:44px repeat(3,minmax(0,1fr)) 72px;align-items:center;gap:4px;padding:8px 2px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:right;font-size:.82rem;width:100%}
+.logrow.head{font-size:.72rem;color:var(--muted);border-bottom:2px solid var(--line);padding-top:0}
+.logrow .ld{display:flex;flex-direction:column;line-height:1.2}
+.logrow .ld small{font-size:.66rem;color:var(--muted)}
+.logrow .lc{font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
+.logrow .lc.x{color:var(--miss);font-weight:700}
+.logrow .lst{font-size:.72rem;color:var(--muted)}
+.proof{border:0;background:var(--primary-soft);color:var(--primary);border-radius:6px;width:22px;height:22px;display:inline-grid;place-items:center;padding:0}
+.proof svg{width:14px;height:14px}
+@media print{
+  body.printing-log > *:not(#logSheet){display:none!important}
+  body.printing-log #logSheet{position:static!important;background:none!important;display:block!important}
+  body.printing-log #logSheet .sheet{position:static!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;border:0!important;width:100%!important;transform:none!important}
+  body.printing-log .noprint, body.printing-log .grab, body.printing-log #logPrint, body.printing-log .proof{display:none!important}
+  body.printing-log .logrow{break-inside:avoid}
+}
+.logsheet .lvline{grid-template-columns:repeat(auto-fit,minmax(88px,1fr))}
+.logsheet .lvline div{padding:8px 10px}
+.logsheet .lvline b{font-size:1.05rem}
