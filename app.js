@@ -868,6 +868,7 @@ function openVisit(id, presetStation){
   $('v2_name').value = s2.stationName||''; $('v2_nameWrap').hidden = $('v2_station').value!=='__other';
   $('v2_area').value = s2.area||'شرق'; $('v2_block').value = s2.block||''; $('v2_street').value = s2.street||''; $('v2_stType').value = s2.stType||'sub';
   setObs2(s2);
+  toggleV2();
   $('v_area').value = v.area||'شرق'; $('v_block').value = v.block||''; $('v_street').value = v.street||'';
   $('v_vdate').value = v.visitDate||''; $('v_time').value = v.visitTime||''; $('v_cdate').value = v.claimDate||v.visitDate||'';
   $('v_ex').value = v.exemption||'none'; $('v_type').value = v.workType||'كشف محطات';
@@ -901,6 +902,10 @@ function visitFromForm(){
   };
   return o;
 }
+// two stations per trip are required from 15 Nov 2026; before that one station is enough
+const TWO_FROM = '2026-11-15';
+const needS2 = o => (o.visitDate || o.claimDate || todayISO()) >= TWO_FROM;
+function toggleV2(){ const need = needS2({visitDate: $('v_vdate').value, claimDate: $('v_cdate').value}); const has = !!station2FromForm(); $('v2Sec').hidden = !need && !has; $('v2Req').textContent = need ? '' : '(اختياري قبل ١٥ نوفمبر)'; }
 function station2FromForm(){
   const sid = $('v2_station').value, s = sid && sid!=='__other' ? stationById(sid) : null;
   const name = s ? s.name : $('v2_name').value.trim();
@@ -1211,7 +1216,7 @@ document.addEventListener('click', async ev => {
     await write(() => S.db.doc('visits/'+id).update({steps}), 'تم: '+STEPS.find(s=>s[0]===k)[1]); return; }
   if (t.id==='v_copy') { copyText(diwanNote(visitFromForm())); return; }
   if (t.id==='v_saveonly') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (!o.visitDate) { toast('حدد تاريخ الزيارة'); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (await saveVisit(o)) $('visitSheet').hidden = true; return; }
-  if (t.id==='v_report') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (!o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (S.db && S.canWrite) await saveVisit(o, true); openReport(o); return; }
+  if (t.id==='v_report') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (needS2(o) && !o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (S.db && S.canWrite) await saveVisit(o, true); openReport(o); return; }
   if (t.id==='v_del') { if (await write(() => S.db.doc('visits/'+editingVisit).delete(), 'تم حذف الزيارة')) $('visitSheet').hidden = true; return; }
   if (t.id==='savePdf') { saveReport('pdf'); return; }
   if (t.id==='saveJpg') { saveReport('jpg'); return; }
@@ -1231,6 +1236,7 @@ document.addEventListener('change', async ev => {
   if (t.id==='v2_station') { const s = stationById(t.value); $('v2_nameWrap').hidden = t.value!=='__other'; if (s) { $('v2_block').value = s.block||''; $('v2_street').value = s.street||''; $('v2_area').value = s.area||'شرق'; } updateDiwan(); }
   if (t.id==='v2_name') updateDiwan();
   if (t.id==='v_vdate' && !editingVisit) { $('v_cdate').value = t.value; updateDiwan(); }
+  if (t.id==='v_vdate' || t.id==='v_cdate') toggleV2();
   if (t.id && t.id.startsWith('vs_') && t.checked && !t.dataset.date) t.dataset.date = todayISO();
   if (t.dataset.assign) { const plan = {...planOf(ymOf())}; if (t.value==='') delete plan[t.dataset.assign]; else plan[t.dataset.assign] = +t.value; await savePlan(ymOf(), plan); }
 });
@@ -1241,7 +1247,7 @@ document.addEventListener('submit', async ev => {
     const o = visitFromForm();
     if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; }
     if (!o.visitDate) { toast('حدد تاريخ الزيارة'); return; }
-    if (!o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; }
+    if (needS2(o) && !o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; }
     if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; }
     if (S.db && S.canWrite) await saveVisit(o, true);
     openReport(o);
