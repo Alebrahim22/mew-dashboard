@@ -319,7 +319,7 @@ function renderTodo(){
     else if (e.missingKeys && e.missingKeys.length) items.push({open:d, ic:'miss', t:`بصمة ${e.missingKeys.map(k=>FPN[k]).join(' و')} ناقصة`, s:when});
   }
   const vs = S.visits.filter(v => nextStep(v) && v.steps && v.steps.visited).sort((a,b) => (claimOf(b)||'').localeCompare(claimOf(a)||'')).slice(0,4);
-  for (const v of vs) items.push({visit:v.id, ic:'late', t:`${v.stationName||'زيارة'}: ${nextStep(v)[1]}`, s:'الخطوة الجاية للزيارة'});
+  for (const v of vs) items.push({visit:v.id, ic:'late', t:`${vNames(v)||'زيارة'}: ${nextStep(v)[1]}`, s:'الخطوة الجاية للزيارة'});
   if (!items.length) { $('todo').innerHTML = ''; return; }
   const shown = todoAll ? items : items.slice(0,3);
   $('todo').innerHTML = `<div class="card todo"><div class="card-head"><h2>المطلوب منك</h2><span class="xs muted">${items.length} ${items.length===1?'مهمة':items.length<=10?'مهام':'مهمة'}</span></div>
@@ -678,7 +678,7 @@ document.addEventListener('click', ev => {
 });
 
 /* ---------- visit photos + checklist ---------- */
-const OBS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','السور الخارجي سليم','السور الخارجي متضرر وبحاجة إلى صيانة','القفل سليم','القفل تالف أو غير موجود','باب المحطة غير محكم الإغلاق','يوجد نفايات بجانب المحطة وتم اللازم','يوجد أنقاض أمام المحطة أو حولها','يوجد كتابات أو ملصقات على جدران المحطة','يوجد تجمع مياه حول المحطة','لوحة اسم المحطة غير موجودة أو غير واضحة','يوجد سيارات أو عوائق تسد مدخل المحطة','يوجد تعديلات على المحطة','تم إبلاغ الجهة المختصة بالملاحظات'];
+const OBS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','السور الخارجي سليم','السور الخارجي متضرر وبحاجة إلى صيانة','القفل سليم','القفل تالف أو غير موجود','باب المحطة غير محكم الإغلاق','يوجد نفايات بجانب المحطة وتم اللازم','يوجد أنقاض أمام المحطة أو حولها','يوجد كتابات أو ملصقات على جدران المحطة','يوجد تجمع مياه حول المحطة','لوحة اسم المحطة غير موجودة أو غير واضحة','يوجد سيارات أو عوائق تسد مدخل المحطة','يوجد تعديات على المحطة','تم إبلاغ الجهة المختصة بالملاحظات'];
 let vPhotos = [];   // {id?, url, blob?, busy?}
 function setObs(v){
   let checks = v.checks, extra = v.extra;
@@ -687,6 +687,15 @@ function setObs(v){
   $('v_desc').value = extra||'';
 }
 function getObs(){ return [...document.querySelectorAll('#v_obs input:checked')].map(i => OBS[+i.value]); }
+function setObs2(s){
+  const checks = s.checks || [];
+  $('v2_obs').innerHTML = OBS.map((o,i) => `<label class="obsck"><input type="checkbox" value="${i}" ${checks.includes(o)?'checked':''}><span>${o}</span></label>`).join('');
+  $('v2_desc').value = s.extra||'';
+}
+function getObs2(){ return [...document.querySelectorAll('#v2_obs input:checked')].map(i => OBS[+i.value]); }
+const vNames = v => [v.stationName, v.s2 && v.s2.stationName].filter(Boolean).join(' و ');
+const stationsOf = v => [{stationName:v.stationName, area:v.area, block:v.block, street:v.street, stType:v.stType, desc:v.desc, checks:v.checks, extra:v.extra, full:v.full},
+  ...(v.s2 && v.s2.stationName ? [v.s2] : [])];
 function renderPhotos(){
   $('v_photos').innerHTML = vPhotos.map((p,i) => `<div class="ph"><img src="${p.url||'data:image/gif;base64,R0lGODlhAQABAAAAACw='}" alt="صورة ${i+1}">${p.busy?'<span class="phb">يرفع…</span>':''}<button type="button" data-del-photo="${i}" aria-label="حذف الصورة">×</button></div>`).join('');
   $('v_photoNote').textContent = vPhotos.length ? `${vPhotos.length} ${vPhotos.length===1?'صورة':'صور'} · تنضاف للتقرير بعد صفحة النموذج` : 'صوّر المحطة أو اختر من الاستديو. الصور تنضاف للـ PDF تلقائياً.';
@@ -722,7 +731,7 @@ function photoPages(imgs, v, first=2){
     x.fillStyle = '#fff'; x.fillRect(0,0,W,H);
     x.fillStyle = '#8eaadb'; x.fillRect(60,60,W-120,110);
     x.fillStyle = '#111'; x.direction = 'rtl'; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.font = F(34); x.fillText('صور الموقع - محطة '+(v.stationName||''), W/2, 100);
+    x.font = F(34); x.fillText('صور الموقع - '+(v.s2 && v.s2.stationName ? 'محطتي ' : 'محطة ')+vNames(v), W/2, 100);
     x.font = F(22,400); x.fillText([v.area, v.block?'قطعة '+v.block:'', v.street?'شارع '+v.street:'', fmtDMY(v.claimDate), v.visitTime?to12(v.visitTime):''].filter(Boolean).join(' · '), W/2, 145);
     [imgs[i], imgs[i+1]].forEach((img, j) => { if (!img) return;
       const bx = 60, by = 200 + j*750, bw = W-120, bh = 700;
@@ -759,7 +768,7 @@ const prevYm = ym => { let [y,m] = ym.split('-').map(Number); m--; if(!m){m=12;y
 const planOf = ym => (S.plans[ym] && S.plans[ym].assign) || {};
 const stationById = id => S.stations.find(s => s.id===id);
 const mapUrl = s => s && s.lat && s.lng ? `https://www.google.com/maps?q=${encodeURIComponent(s.lat+','+s.lng)}` : '';
-const diwanNote = v => `الكشف على محطة ${v.stationName||''}${v.area?' في '+v.area:''}`;
+const diwanNote = v => `الكشف على ${v.s2 && v.s2.stationName ? 'محطتي' : 'محطة'} ${vNames(v)}${v.area?' في '+v.area:''}`;
 function fmtDMY(d){ if(!d) return ''; const [y,m,dd] = d.split('-'); return `${+dd}/${+m}/${y}`; }
 
 let sview = 'visits';
@@ -791,7 +800,7 @@ function renderSites(){
     const dots = STEPS.map(([k,l],i) => `<span class="sd ${st[k]?'on':''} ${nx&&nx[0]===k?'cur':''}"><i></i><small>${STEP_SHORT[i]}</small></span>`).join('');
     return `<div class="visit">
       <button class="vmain" data-visit="${v.id}">
-        <span class="vtop"><b>${esc(v.stationName||'محطة')}</b><span class="xs muted">${fmtDate(claimOf(v),{weekday:'short',day:'numeric',month:'short'})}${v.visitDate && v.visitDate!==claimOf(v) ? ' · زرتها '+fmtDate(v.visitDate,{day:'numeric',month:'short'}) : ''}</span></span>
+        <span class="vtop"><b>${esc(vNames(v)||'محطة')}</b><span class="xs muted">${fmtDate(claimOf(v),{weekday:'short',day:'numeric',month:'short'})}${v.visitDate && v.visitDate!==claimOf(v) ? ' · زرتها '+fmtDate(v.visitDate,{day:'numeric',month:'short'}) : ''}</span></span>
         <span class="stepdots">${dots}</span>
         <span class="chips">${nx ? `<span class="chip" style="--c:var(--late);--cbg:var(--late-bg)">الخطوة الجاية: ${nx[1]}</span>` : `<span class="chip" style="--c:var(--ok);--cbg:var(--ok-bg)">مكتملة</span>`}
           ${v.exemption && v.exemption!=='none' ? `<span class="chip" style="--c:var(--excused);--cbg:var(--excused-bg)">${EXN[v.exemption]}</span>` : ''}
@@ -804,7 +813,7 @@ function renderSites(){
 
   const plan = planOf(ym);
   const mine = S.stations.filter(s => plan[s.id]===0);
-  const visitedIds = new Set(vs.map(v => v.stationId).filter(Boolean));
+  const visitedIds = new Set(vs.flatMap(v => [v.stationId, v.s2 && v.s2.stationId]).filter(Boolean));
   $('sMineCount').textContent = mine.length ? `${mine.filter(s=>visitedIds.has(s.id)).length} من ${mine.length} تمت زيارتها` : '';
   $('sMine').innerHTML = mine.length ? `<div class="stlist">${mine.map(s => `<div class="strow"><span class="sticon ${visitedIds.has(s.id)?'done':''}">${visitedIds.has(s.id)?'✓':''}</span>
       <span class="stbody"><b>${esc(s.name)}</b><span class="xs muted">${stAddr(s)}</span></span>
@@ -848,6 +857,12 @@ function openVisit(id, presetStation){
   $('v_station').innerHTML = '<option value="">— اختر المحطة —</option>' + opts.map(s=>`<option value="${s.id}">${esc(s.name)}${s.block?' (ق '+esc(s.block)+')':''}</option>`).join('') + '<option value="__other">محطة غير موجودة بالقائمة</option>';
   $('v_station').value = v.stationId && stationById(v.stationId) ? v.stationId : (v.stationName ? '__other' : '');
   $('v_name').value = v.stationName||''; $('v_nameWrap').hidden = $('v_station').value!=='__other';
+  const s2 = v.s2 || {};
+  $('v2_station').innerHTML = $('v_station').innerHTML;
+  $('v2_station').value = s2.stationId && stationById(s2.stationId) ? s2.stationId : (s2.stationName ? '__other' : '');
+  $('v2_name').value = s2.stationName||''; $('v2_nameWrap').hidden = $('v2_station').value!=='__other';
+  $('v2_area').value = s2.area||'شرق'; $('v2_block').value = s2.block||''; $('v2_street').value = s2.street||''; $('v2_stType').value = s2.stType||'sub';
+  setObs2(s2);
   $('v_area').value = v.area||'شرق'; $('v_block').value = v.block||''; $('v_street').value = v.street||'';
   $('v_vdate').value = v.visitDate||''; $('v_time').value = v.visitTime||''; $('v_cdate').value = v.claimDate||v.visitDate||'';
   $('v_ex').value = v.exemption||'none'; $('v_type').value = v.workType||'كشف محطات';
@@ -855,7 +870,7 @@ function openVisit(id, presetStation){
   $('v_partner').innerHTML = '<option value="">بروحي</option>' + T.slice(1).map((n,i)=>`<option value="${i+1}">${esc(n)}</option>`).join('');
   $('v_partner').value = v.partner ?? '';
   setObs(v); $('v_notes').value = v.notes||'';
-  $('v_stType').value = v.stType||'sub'; $('v_full').checked = !!v.fullForm; renderFull(v.full || fullDefaults(v.checks || getObs()));
+  $('v_stType').value = v.stType||'sub'; $('v_full').checked = !!v.fullForm; renderFull(v.full || fullDefaults(v.checks || getObs()), s2.full || fullDefaults(s2.checks));
   vPhotos = (v.photos||[]).map(id => ({id, url:''})); renderPhotos(); hydratePhotos();
   const st = v.steps||{};
   $('v_steps').innerHTML = STEPS.map(([k,l],i) => `<label class="stepck"><input type="checkbox" id="vs_${k}" ${st[k]?'checked':''} data-date="${st[k]||''}"><span class="n">${i+1}</span><span>${l}</span>${typeof st[k]==='string'?`<span class="xs muted">${fmtDate(st[k],{day:'numeric',month:'short'})}</span>`:''}</label>`).join('');
@@ -876,10 +891,18 @@ function visitFromForm(){
     exemption: $('v_ex').value, workType: $('v_type').value.trim(), partner: $('v_partner').value,
     checks: getObs(), extra: $('v_desc').value.trim(), desc: [...getObs(), ...$('v_desc').value.split(/\n+/).map(x=>x.trim()).filter(Boolean)].join('\n'),
     photos: vPhotos.filter(p=>p.id).map(p=>p.id), notes: $('v_notes').value.trim(), steps,
-    stType: $('v_stType').value, fullForm: $('v_full').checked, full: getFull(),
+    stType: $('v_stType').value, fullForm: $('v_full').checked, full: getFull('fr_'), s2: station2FromForm(),
     createdAt: old?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString()
   };
   return o;
+}
+function station2FromForm(){
+  const sid = $('v2_station').value, s = sid && sid!=='__other' ? stationById(sid) : null;
+  const name = s ? s.name : $('v2_name').value.trim();
+  if (!name) return null;
+  const checks = getObs2(), extra = $('v2_desc').value.trim();
+  return {stationId: s ? s.id : '', stationName: name, area: $('v2_area').value.trim(), block: $('v2_block').value.trim(), street: $('v2_street').value.trim(),
+    stType: $('v2_stType').value, checks, extra, desc: [...checks, ...extra.split(/\n+/).map(x=>x.trim()).filter(Boolean)].join('\n'), full: getFull('fr2_')};
 }
 function updateDiwan(){
   const v = visitFromForm();
@@ -904,19 +927,24 @@ async function drawReport(v, nPhotos=0){
   put(fmtDMY(v.claimDate), 782, 389, 165);
   put(v.visitTime ? to12(v.visitTime) : '', 434, 389, 155);
   put(v.workType, 131, 389, 145);
-  put(v.area, 968, 644, 190);
-  put(v.block, 777, 644, 155);
-  put(v.street, 605, 644, 155);
-  put(v.stationName, 434, 644, 160);
+  const sts = stationsOf(v);
+  const put2 = (vals, cx, maxW) => { const u = vals.map(s => s||''); if (u.length < 2 || u[0]===u[1]) return put(u[0], cx, 644, maxW);
+    put(u[0], cx, 627, maxW, 19); put(u[1], cx, 661, maxW, 19); };
+  put2(sts.map(s => s.area), 968, 190);
+  put2(sts.map(s => s.block), 777, 155);
+  put2(sts.map(s => s.street), 605, 155);
+  if (sts.length > 1) { put(sts[0].stationName, 434, 627, 160, 19); put(sts[1].stationName, 434, 661, 160, 19); } else put(v.stationName, 434, 644, 160);
   // top notes cell: fixed wording; any free-text notes go into the description below
   const OK_LINES = new Set([OBS[0], OBS[1], OBS[3]]);
   const extraNotes = (v.notes||'').trim();
-  const issues = (v.desc||'').split(/\n+/).map(s=>s.trim()).filter(s => s && !OK_LINES.has(s)).length > 0 || !!extraNotes;
+  const issuesOf = st => (st.desc||'').split(/\n+/).map(s=>s.trim()).filter(s => s && !OK_LINES.has(s)).length > 0;
+  const issues = sts.some(issuesOf) || !!extraNotes;
   put(issues ? 'يوجد ملاحظات مذكورة أدناه' : 'لا يوجد ملاحظات', 199, 644, 280, 18);
   // description on the dotted lines
   x.font = F(20); x.textAlign = 'right';
   const lines = [];
-  const descText = issues ? (v.desc||'').split('\n').map(s => s.trim()===OBS[0] ? 'المحطة سليمة خارجياً' : s).join('\n') : (v.desc||'');
+  const fixDesc = st => issues ? (st.desc||'').split('\n').map(s => s.trim()===OBS[0] ? 'المحطة سليمة خارجياً' : s).join('\n') : (st.desc||'');
+  const descText = sts.length > 1 ? sts.map(st => `محطة ${st.stationName}:\n${fixDesc(st) || 'لا يوجد ملاحظات'}`).join('\n') : fixDesc(sts[0]);
   for (const para of (descText + (extraNotes ? '\n'+extraNotes : '') + (nPhotos ? '\nمرفق '+(nPhotos===1?'صورة واحدة':nPhotos+' صور')+' للموقع' : '')).split(/\n+/)) {
     let cur = '';
     for (const w of para.split(/\s+/)) { const t = cur ? cur+' '+w : w; if (x.measureText(t).width > 985 && cur) { lines.push(cur); cur = w; } else cur = t; }
@@ -931,15 +959,16 @@ async function drawReport(v, nPhotos=0){
 const FULL_ITEMS = [['wall','حائط'],['num','رقم المحطة'],['fence','سور المحطة'],['emerg','باب الطوارئ']];
 const FULL_BAD_NOTE = {wall:'يوجد كتابات أو ملصقات', num:'اللوحة غير موجودة أو غير واضحة', fence:'بحاجة إلى صيانة', emerg:''};
 const ST_TYPES = {sub:'محطة تحويل ثانوية', rmu:'وحدة توزيع متكاملة'};
-const OBS_DEBRIS = 'يوجد أنقاض أمام المحطة أو حولها', OBS_MOD = 'يوجد تعديلات على المحطة';
+const OBS_DEBRIS = 'يوجد أنقاض أمام المحطة أو حولها', OBS_MOD = 'يوجد تعديات على المحطة';
 function fullDefaults(checks){ checks = checks||[]; return {wall: checks.includes(OBS[8])?'bad':'ok', num: checks.includes(OBS[10])?'bad':'ok', fence: checks.includes(OBS[2])?'bad':'ok', emerg:'ok'}; }
-function renderFull(f){
+function renderFull(f, f2){
   $('v_fullBox').hidden = !$('v_full').checked;
-  $('v_fullRows').innerHTML = FULL_ITEMS.map(([k,l]) => `<div class="fullrow"><span>${l}</span><div class="seg-ctl">
-    <label><input type="radio" name="fr_${k}" value="ok" ${f[k]!=='bad'?'checked':''}>سليم</label>
-    <label><input type="radio" name="fr_${k}" value="bad" ${f[k]==='bad'?'checked':''}>غير سليم</label></div></div>`).join('');
+  const rows = (pre, f) => FULL_ITEMS.map(([k,l]) => `<div class="fullrow"><span>${l}</span><div class="seg-ctl">
+    <label><input type="radio" name="${pre}${k}" value="ok" ${f[k]!=='bad'?'checked':''}>سليم</label>
+    <label><input type="radio" name="${pre}${k}" value="bad" ${f[k]==='bad'?'checked':''}>غير سليم</label></div></div>`).join('');
+  $('v_fullRows').innerHTML = `<b class="small">المحطة الأولى</b>${rows('fr_', f)}<b class="small">المحطة الثانية</b>${rows('fr2_', f2 || fullDefaults([]))}`;
 }
-function getFull(){ const o = {}; FULL_ITEMS.forEach(([k]) => { const r = document.querySelector(`input[name="fr_${k}"]:checked`); o[k] = r ? r.value : 'ok'; }); return o; }
+function getFull(pre){ const o = {}; FULL_ITEMS.forEach(([k]) => { const r = document.querySelector(`input[name="${pre}${k}"]:checked`); o[k] = r ? r.value : 'ok'; }); return o; }
 const OK_OBS = () => new Set([OBS[0], OBS[1], OBS[3]]);
 function visitIssues(v){ const ok = OK_OBS(); return (v.desc||'').split(/\n+/).map(s=>s.trim()).filter(s => s && !ok.has(s)); }
 let logoImg = null;
@@ -987,7 +1016,8 @@ function ftable(x, right, y, widths, rows){
 function fbar(x, L, R, y, h, t){ x.fillStyle = '#8eaadb'; x.fillRect(L, y, R-L, h); x.strokeStyle = '#000'; x.lineWidth = 1.4; x.strokeRect(L, y, R-L, h); ftext(x, t, (L+R)/2, y+h/2+1, 0, 24, 700); }
 function fdots(x, R, L, y){ x.save(); x.strokeStyle = '#555'; x.lineWidth = 1.2; x.setLineDash([2,4]); x.beginPath(); x.moveTo(L, y); x.lineTo(R, y); x.stroke(); x.restore(); }
 
-async function drawFullForm(v){
+async function drawFullForm(v, st){
+  st = st || stationsOf(v)[0];
   const logo = await loadLogo();
   try { await document.fonts.load('600 20px "IBM Plex Sans Arabic"'); } catch(e){}
   const {c, x, W} = formPage(), L = 60, R = W-60;
@@ -998,10 +1028,10 @@ async function drawFullForm(v){
   ftext(x, 'مراقبة محافظة العاصمة', R-30, 230, 0, 23, 700, '#111', 'right');
   x.drawImage(logo, W/2-150, 70, 300, 140);
   ftext(x, 'الكشف على المحطات الثانوية ( الشامل )', W/2, 290, 0, 25, 700);
-  const hdr = [['المنطقة', v.area], ['القطعة', v.block], ['المحطة', v.stationName], ['نوع المحطة', ST_TYPES[v.stType||'sub']]];
+  const hdr = [['المنطقة', st.area], ['القطعة', st.block], ['المحطة', st.stationName], ['نوع المحطة', ST_TYPES[st.stType||'sub']]];
   hdr.forEach(([l, val], i) => { const y = 92 + i*52; x.font = FF(22,700); const lw = x.measureText(l+' / ').width;
     ftext(x, l+' / ', 430, y, 0, 22, 700, '#111', 'right'); ftext(x, val||'', 430-lw-4, y, 240, 21, 600, INK, 'right'); });
-  const f = v.full || fullDefaults(v.checks), key = {'حائط':'wall','رقم المحطة':'num','سور المحطة':'fence','باب الطوارئ':'emerg'};
+  const f = st.full || fullDefaults(st.checks), key = {'حائط':'wall','رقم المحطة':'num','سور المحطة':'fence','باب الطوارئ':'emerg'};
   const CIVIL = ['شفاط','اللمبات','باب','حائط','سقف','قفل','رقم المحطة','سور المحطة','البلكات','نظافة المحطة','باب الطوارئ','الترنشات'];
   let y = 334; fbar(x, L, R, y, 50, '( مدني )'); y += 50;
   y = ftable(x, R, y, [70,230,230,230,360], [{h:40, bold:true, cells:['م','البيانات المطلوبة','سليم','غير سليم','ملاحظات أخرى']},
@@ -1016,7 +1046,7 @@ async function drawFullForm(v){
   y = ftable(x, R, y, [70,230,170,170,170,170,140], [{h:40, bold:true, cells:['م','بيانات المطلوبة','TR - 1','TR - 2','TR - 3','TR - 4','ملاحظات أخرى']},
     ...['عدد اليونتات الأحتياط','عدد اليونتات المستخدمة','كتاوت على الحائط'].map((n,i) => ({h:34, cells:[String(i+1), n, '—','—','—','—','—']}))]);
   y += 34; ftext(x, 'ملاحظات أخرى : -', R-10, y, 0, 22, 700, '#111', 'right');
-  const more = [v.extra, v.notes].map(s => (s||'').trim()).filter(Boolean).join(' · ');
+  const more = [st.extra, st.stationName === v.stationName ? v.notes : ''].map(s => (s||'').trim()).filter(Boolean).join(' · ');
   for (let i = 0; i < 3; i++) fdots(x, R-130, L+60, y + 34 + i*34);
   ftext(x, more || 'لا يوجد', R-140, y + 20, R-L-220, 20, 600, INK, 'right');
   ftext(x, 'توقيع الكاشف', R-90, y + 170, 0, 21, 700);
@@ -1029,19 +1059,21 @@ async function drawSummaryForm(v){
   try { await document.fonts.load('600 20px "IBM Plex Sans Arabic"'); } catch(e){}
   const {c, x, W, H} = formPage(), L = 60, R = W-60;
   x.drawImage(logo, W/2-200, 50, 400, 187);
-  const sub = (v.stType||'sub') === 'sub';
+  const sts = stationsOf(v), nSub = sts.filter(s => (s.stType||'sub') === 'sub').length;
   const line = (label, val, y) => { x.font = FF(26,600); const lw = x.measureText(label).width; ftext(x, label, R-20, y, 0, 26, 600, '#111', 'right');
     fdots(x, R-20-lw-8, R-20-lw-200, y+14); ftext(x, val, R-20-lw-100, y, 0, 26, 700, INK); };
-  line('عدد المحطات التحويل الثانوية:', sub ? '1' : '0', 290);
-  line('عدد وحدات التوزيع المتكاملة:', sub ? '0' : '1', 345);
-  const iss = visitIssues(v), extra = (v.notes||'').trim();
-  const debris = (v.desc||'').includes(OBS_DEBRIS), mod = (v.desc||'').includes(OBS_MOD);
-  const others = iss.filter(s => s !== OBS_DEBRIS && s !== OBS_MOD && s !== OBS[OBS.length-1]);
-  const status = (iss.length || extra) ? 'يوجد ملاحظات' : 'سليمة';
-  let note = others.join('، '); if (extra) note = note ? note + '، ' + extra : extra;
-  x.font = FF(12,600); if (x.measureText(note).width > 480) note = 'مذكورة في نموذج الانتقال';
-  const rows = [{h:44, fill:'#d9d9d9', bold:true, cells:['م','رقم المحطة','حالة المحطة','يوجد أنقاض','يوجد تعديلات','ملاحظات اخرى']}];
-  for (let i = 1; i <= 30; i++) rows.push({h:34, cells: i===1 ? ['1', {f:v.stationName||''}, {f:status}, {f:debris?'نعم':'لا'}, {f:mod?'نعم':'لا'}, {f:note||'لا يوجد'}] : [String(i),'','','','','']});
+  line('عدد المحطات التحويل الثانوية:', String(nSub), 290);
+  line('عدد وحدات التوزيع المتكاملة:', String(sts.length - nSub), 345);
+  const rowOf = (st, i) => {
+    const iss = visitIssues(st), extra = i === 0 ? (v.notes||'').trim() : '';
+    const debris = (st.desc||'').includes(OBS_DEBRIS), mod = (st.desc||'').includes(OBS_MOD);
+    const others = iss.filter(s => s !== OBS_DEBRIS && s !== OBS_MOD && s !== OBS[OBS.length-1]);
+    let note = others.join('، '); if (extra) note = note ? note + '، ' + extra : extra;
+    x.font = FF(12,600); if (x.measureText(note).width > 480) note = 'مذكورة في نموذج الانتقال';
+    return [String(i+1), {f:st.stationName||''}, {f:(iss.length || extra) ? 'يوجد ملاحظات' : 'سليمة'}, {f:debris?'نعم':'لا'}, {f:mod?'نعم':'لا'}, {f:note||'لا يوجد'}];
+  };
+  const rows = [{h:44, fill:'#d9d9d9', bold:true, cells:['م','رقم المحطة','حالة المحطة','يوجد أنقاض','يوجد تعديات','ملاحظات اخرى']}];
+  for (let i = 1; i <= 30; i++) rows.push({h:34, cells: sts[i-1] ? rowOf(sts[i-1], i-1) : [String(i),'','','','','']});
   let y = ftable(x, R, 390, [60,230,200,170,190,270], rows);
   y += 40;
   ftext(x, 'توقيع الكاشف:', R-10, y, 0, 24, 600, '#111', 'right'); fdots(x, R-170, R-420, y+12);
@@ -1053,7 +1085,7 @@ async function drawSummaryForm(v){
 }
 async function reportPages(v, nPhotos){
   const pages = [await drawReport(v, nPhotos)];
-  if (v.fullForm) pages.push(await drawFullForm(v));
+  if (v.fullForm) for (const st of stationsOf(v)) pages.push(await drawFullForm(v, st));
   pages.push(await drawSummaryForm(v));
   return pages;
 }
@@ -1071,7 +1103,7 @@ async function openReport(v){
   $('reportBtns').hidden = !can;
   $('reportHint').textContent = can ? `ملف الـ PDF فيه ${reportPagesC.length} ${reportPagesC.length===2?'نموذجين':'نماذج'}${vPhotos.length ? ` و${vPhotos.length} ${vPhotos.length===1?'صورة':'صور'}` : ''}. ` + 'نزّله وارفعه بالتراسل ووقّع من هناك.' : 'الحفظ غير متاح في هذا العرض. اضغط مطولاً على الصورة لحفظها.';
 }
-function fileBase(v){ return `تقرير ${(v.stationName||'محطة').replace(/[\\/:*?"<>|]/g,'')} ${v.claimDate||''}`.trim(); }
+function fileBase(v){ return `تقرير ${(vNames(v)||'محطة').replace(/[\\/:*?"<>|]/g,'')} ${v.claimDate||''}`.trim(); }
 
 /* tiny PDF writer: each page is one full-page JPEG */
 async function canvasJpeg(c, q){ const b = await new Promise(r => c.toBlob(r, 'image/jpeg', q)); return {bytes: new Uint8Array(await b.arrayBuffer()), w: c.width, h: c.height}; }
@@ -1146,7 +1178,7 @@ document.addEventListener('click', async ev => {
   if (sp) { const [id,k] = sp.dataset.step.split('|'); const v = S.visits.find(x=>x.id===id); if (!v) return; const steps = {...(v.steps||{}), [k]: todayISO()};
     await write(() => S.db.doc('visits/'+id).update({steps}), 'تم: '+STEPS.find(s=>s[0]===k)[1]); return; }
   if (t.id==='v_copy') { copyText(diwanNote(visitFromForm())); return; }
-  if (t.id==='v_report') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (S.db && S.canWrite) await saveVisit(o, true); openReport(o); return; }
+  if (t.id==='v_report') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (!o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (S.db && S.canWrite) await saveVisit(o, true); openReport(o); return; }
   if (t.id==='v_del') { if (await write(() => S.db.doc('visits/'+editingVisit).delete(), 'تم حذف الزيارة')) $('visitSheet').hidden = true; return; }
   if (t.id==='savePdf') { saveReport('pdf'); return; }
   if (t.id==='saveJpg') { saveReport('jpg'); return; }
@@ -1162,7 +1194,9 @@ document.addEventListener('change', async ev => {
   const t = ev.target;
   if (t.id==='v_station') { const s = stationById(t.value); $('v_nameWrap').hidden = t.value!=='__other'; if (s) { $('v_block').value = s.block||''; $('v_street').value = s.street||''; $('v_area').value = s.area||'شرق'; } updateDiwan(); }
   if (['v_ex','v_cdate','v_name','v_area'].includes(t.id)) updateDiwan();
-  if (t.id==='v_full') { if (t.checked) renderFull(fullDefaults(getObs())); else $('v_fullBox').hidden = true; }
+  if (t.id==='v_full') { if (t.checked) renderFull(fullDefaults(getObs()), fullDefaults(getObs2())); else $('v_fullBox').hidden = true; }
+  if (t.id==='v2_station') { const s = stationById(t.value); $('v2_nameWrap').hidden = t.value!=='__other'; if (s) { $('v2_block').value = s.block||''; $('v2_street').value = s.street||''; $('v2_area').value = s.area||'شرق'; } updateDiwan(); }
+  if (t.id==='v2_name') updateDiwan();
   if (t.id==='v_vdate' && !editingVisit) { $('v_cdate').value = t.value; updateDiwan(); }
   if (t.id && t.id.startsWith('vs_') && t.checked && !t.dataset.date) t.dataset.date = todayISO();
   if (t.dataset.assign) { const plan = {...planOf(ymOf())}; if (t.value==='') delete plan[t.dataset.assign]; else plan[t.dataset.assign] = +t.value; await savePlan(ymOf(), plan); }
@@ -1261,7 +1295,7 @@ async function driveCall(body){
   if (error) throw error; if (data && data.error) throw new Error(data.error); return data;
 }
 const blobToB64 = b => new Promise((res,rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(b); });
-function visitFolder(v){ return `${v.claimDate||v.visitDate||todayISO()} - ${(v.stationName||'محطة').replace(/[\\/:*?"<>|]/g,'')}`; }
+function visitFolder(v){ return `${v.claimDate||v.visitDate||todayISO()} - ${(vNames(v)||'محطة').replace(/[\\/:*?"<>|]/g,'')}`; }
 async function driveUpload(blob, name, mime, v){
   const r = await driveCall({action:'upload', date: v.claimDate||v.visitDate||todayISO(), folder: visitFolder(v), name, mime, data: await blobToB64(blob)});
   return r; // {id, url}

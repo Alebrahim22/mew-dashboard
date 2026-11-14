@@ -242,6 +242,7 @@
   <form class="sheet" id="visitF">
     <div class="grab"></div>
     <div class="sheet-head"><h2 id="visitTitle">زيارة موقع</h2><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <h3 class="vsec">المحطة الأولى</h3>
     <div class="field"><label for="v_station">المحطة</label><select id="v_station"></select></div>
     <div class="field" id="v_nameWrap" hidden><label for="v_name">اسم المحطة</label><input id="v_name"></div>
     <div class="row3">
@@ -265,6 +266,19 @@
     <div class="field"><span class="flabel">ملاحظات الكشف (علّم على اللي تبيه ينذكر بالتقرير)</span><div class="obs" id="v_obs"></div></div>
     <div class="field"><label for="v_desc">ملاحظة إضافية بكتابتك (اختياري)</label><textarea id="v_desc" rows="2"></textarea></div>
     <div class="field"><label for="v_stType">نوع المحطة</label><select id="v_stType"><option value="sub">محطة تحويل ثانوية</option><option value="rmu">وحدة توزيع متكاملة</option></select></div>
+    <div class="vsec2" id="v2Sec">
+      <h3 class="vsec">المحطة الثانية</h3>
+      <div class="field"><label for="v2_station">المحطة</label><select id="v2_station"></select></div>
+      <div class="field" id="v2_nameWrap" hidden><label for="v2_name">اسم المحطة</label><input id="v2_name"></div>
+      <div class="row3">
+        <div class="field"><label for="v2_area">المنطقة</label><input id="v2_area"></div>
+        <div class="field"><label for="v2_block">القطعة</label><input id="v2_block" inputmode="numeric"></div>
+        <div class="field"><label for="v2_street">الشارع</label><input id="v2_street"></div>
+      </div>
+      <div class="field"><label for="v2_stType">نوع المحطة</label><select id="v2_stType"><option value="sub">محطة تحويل ثانوية</option><option value="rmu">وحدة توزيع متكاملة</option></select></div>
+      <div class="field"><span class="flabel">ملاحظات الكشف للمحطة الثانية</span><div class="obs" id="v2_obs"></div></div>
+      <div class="field"><label for="v2_desc">ملاحظة إضافية للمحطة الثانية (اختياري)</label><textarea id="v2_desc" rows="2"></textarea></div>
+    </div>
     <div class="field">
       <label class="obsck"><input type="checkbox" id="v_full"><span>إرفاق نموذج الكشف الشامل <span class="xs muted">(اختياري)</span></span></label>
       <div class="fullbox" id="v_fullBox" hidden>
