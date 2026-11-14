@@ -402,3 +402,10 @@ button.kpi:active{transform:scale(.98)}
 .st-sec[open] summary::after{transform:rotate(-90deg)}
 .st-body{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
 .st-sec input:disabled{opacity:.6}
+
+.tip{flex-direction:row;align-items:flex-start;gap:12px;background:linear-gradient(160deg,color-mix(in srgb,var(--primary) 10%,var(--surface)),var(--surface))}
+.tip-ic{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--primary-soft);color:var(--primary)}
+.tip-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.tip-tx{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tip-tx small{color:var(--muted);font-size:.82rem;line-height:1.6}
+.brand h1{white-space:nowrap}

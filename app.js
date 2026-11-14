@@ -203,6 +203,35 @@ function renderHero(){
 }
 const CAM_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 
+/* PWA: service worker, install tip, images shared from other apps */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; renderInstallTip(); });
+function renderInstallTip(){
+  const el = $('installTip'); if (!el) return;
+  let hidden = false; try { hidden = localStorage.getItem('mew.installSkip') === '1'; } catch(e){}
+  if (isStandalone() || hidden || (!isIOS() && !installEvt)) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card tip"><div class="tip-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg></div>
+    <div class="tip-tx"><b>ثبّت الموقع على شاشتك</b>
+      <small>${isIOS() ? 'من Safari اضغط زر المشاركة <span class="ltr">⬆</span> ثم «إضافة إلى الشاشة الرئيسية». يفتح مثل التطبيق وتوصلك التنبيهات.' : 'يفتح مثل التطبيق، وتقدر تشارك صورة البصمة له مباشرة، وتوصلك التنبيهات.'}</small>
+      <span class="actions">${installEvt ? '<button type="button" class="btn sm primary" id="installGo">ثبّت الحين</button>' : ''}<button type="button" class="btn sm" id="installSkip">لاحقاً</button></span></div></div>`;
+}
+document.addEventListener('click', async ev => {
+  if (ev.target.id === 'installSkip') { try { localStorage.setItem('mew.installSkip','1'); } catch(e){} renderInstallTip(); }
+  if (ev.target.id === 'installGo' && installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch(e){} installEvt = null; renderInstallTip(); }
+});
+async function takeSharedImage(){
+  if (!new URLSearchParams(location.search).has('share') || !('caches' in window)) return;
+  try { history.replaceState(null, '', location.pathname + '#home'); } catch(e){}
+  try {
+    const cache = await caches.open('mew-share'); const r = await cache.match('shared-image');
+    if (!r) return; const blob = await r.blob(); await cache.delete('shared-image');
+    setTab('home'); openFpFile(new File([blob], 'shared.jpg', {type: blob.type || 'image/jpeg'}));
+  } catch(e) {}
+}
+
 /* «المطلوب منك»: what needs doing, newest first */
 function renderTodo(){
   const items = [];
@@ -1091,8 +1120,8 @@ function fpRefresh(){
   $('fpSave').disabled = false;
 }
 document.addEventListener('click', ev => { if (ev.target.closest('[data-fpup]')) $('fpFile').click(); });
-$('fpFile').onchange = async e => {
-  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+$('fpFile').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) openFpFile(file); };
+async function openFpFile(file){
   fpBlob = file;
   $('fpImg').src = URL.createObjectURL(file);
   $('fpDate').value = ''; $('fpTime').value = ''; $('fpNote').textContent = ''; $('fpSave').disabled = true;
@@ -1110,7 +1139,7 @@ $('fpFile').onchange = async e => {
   } catch (err) {
     $('fpSub').textContent = 'تعذرت قراءة الصورة، اكتب البيانات بنفسك.';
   }
-};
+}
 ['fpDate','fpTime'].forEach(id => $(id).addEventListener('change', () => { const c = fpClassify({date:$('fpDate').value, time:$('fpTime').value, kind: $('fpType').value==='out'?'out':(fpGuess?.kind||'in')}); if (c) $('fpType').value = c.f; fpRefresh(); }));
 $('fpType').addEventListener('change', fpRefresh);
 $('fpF').onsubmit = async e => {
@@ -1130,7 +1159,7 @@ $('fpF').onsubmit = async e => {
       .catch(() => toast('انحفظت البصمة، بس الصورة ما انحفظت في الدرايف'));
   }
 };
-window.__fp = {parseFpText, fpShiftDate, fpClassify, S, render};
+window.__fp = {parseFpText, fpShiftDate, fpClassify, S, render, takeSharedImage, renderInstallTip};
 
 S.assets = {
   async upload(blob){ const v = visitFromForm(); const r = await driveUpload(blob, `صورة ${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`, 'image/jpeg', v); driveCache[r.id] = blob; return {id:r.id, url:r.url}; },
@@ -1229,6 +1258,8 @@ async function afterLogin(session){
   S.canWrite = true;
   authView('in'); banner('');
   render();
+  renderInstallTip();
+  takeSharedImage();
   offerPasskey();
 }
 async function offerPasskey(){
