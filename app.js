@@ -148,7 +148,7 @@ function render(){
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.tab===tab ? 'page' : 'false'));
   document.querySelectorAll('[data-view]').forEach(v => v.hidden = v.dataset.view !== tab);
   const evs = monthDates().map(evalDay);
-  if (tab==='home') { renderHero(); renderOverview(); }
+  if (tab==='home') { renderHero(); renderTodo(); renderOverview(); }
   if (tab==='calendar') { renderCal(evs); renderList(evs); }
   if (tab==='leaves') renderLeaves();
   if (tab==='sites') renderSites();
@@ -181,7 +181,8 @@ function renderHero(){
       <div><div class="timeline"><span style="background:var(--primary-soft)"></span><i class="now" style="right:calc(${pct}% - 1px)"></i></div></div>
       <div class="tl-labels"><span>${to12(hhmm(SHIFT[k].start))}</span><span>${to12(hhmm(SHIFT[k].start+SHIFT_H*60))}</span></div>
       <div class="row3">${FP.map(([f])=>slotHTML(e,f,nk)).join('')}</div>
-      ${nk && S.canWrite ? `<button class="btn primary big" data-punch="${cur}|${nk}">سجّل بصمة ${FPN[nk]} الآن · ${to12(nowHM())}</button>` : ''}
+      ${S.canWrite ? `<div class="hero-actions">${nk ? `<button class="btn primary big" data-punch="${cur}|${nk}">سجّل بصمة ${FPN[nk]} الآن · ${to12(nowHM())}</button>` : ''}
+        <button class="btn photo" data-fpup type="button">${CAM_IC} ${nk ? 'أو ارفع صورة البصمة من التطبيق' : 'ارفع صورة البصمة'}</button></div>` : ''}
       <button class="btn ghost" data-open="${cur}">تعديل أوقات هذه الخفارة</button>`;
     return;
   }
@@ -197,8 +198,32 @@ function renderHero(){
   h.innerHTML = `<div class="state" style="color:var(--muted)"><span class="pulse rest"></span>راحة</div>
     <div class="big-t">${nx ? SHIFT[nk].long+' '+fmtDate(nx,{weekday:'long'}) : 'لا توجد خفارة قادمة'}</div>
     ${nx ? `<p class="muted">${fmtDate(nx,{day:'numeric',month:'long'})} · ${shiftRange(nk)} · <b style="color:var(--primary)">${left}</b></p>` : ''}
-    ${lastHTML}`;
+    ${lastHTML}
+    ${S.canWrite ? `<button class="btn photo wide" data-fpup type="button">${CAM_IC} ارفع صورة البصمة</button>` : ''}`;
 }
+const CAM_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+
+/* «المطلوب منك»: what needs doing, newest first */
+function renderTodo(){
+  const items = [];
+  const t = todayISO();
+  for (let i=1;i<=31 && items.length<6;i++) {
+    const d = addDays(t,-i); if (d < (S.settings.trackFrom||'')) break;
+    const e = evalDay(d); if (!e.duty || ['excused','untracked','future','rest','live'].includes(e.status)) continue;
+    const when = SHIFT[e.k].long+' '+fmtDate(d,{weekday:'long',day:'numeric',month:'short'});
+    if (e.status==='absent') items.push({open:d, ic:'absent', t:'ما في أي بصمة مسجلة', s:when});
+    else if (e.missingKeys && e.missingKeys.length) items.push({open:d, ic:'miss', t:`بصمة ${e.missingKeys.map(k=>FPN[k]).join(' و')} ناقصة`, s:when});
+  }
+  const vs = S.visits.filter(v => nextStep(v) && v.steps && v.steps.visited).sort((a,b) => (claimOf(b)||'').localeCompare(claimOf(a)||'')).slice(0,4);
+  for (const v of vs) items.push({visit:v.id, ic:'late', t:`${v.stationName||'زيارة'}: ${nextStep(v)[1]}`, s:'الخطوة الجاية للزيارة'});
+  if (!items.length) { $('todo').innerHTML = ''; return; }
+  const shown = todoAll ? items : items.slice(0,3);
+  $('todo').innerHTML = `<div class="card todo"><div class="card-head"><h2>المطلوب منك</h2><span class="xs muted">${items.length} ${items.length===1?'مهمة':items.length<=10?'مهام':'مهمة'}</span></div>
+    ${shown.map(x => `<button class="todo-row" ${x.open?`data-open="${x.open}"`:`data-visit="${x.visit}"`}><i style="--c:var(--${x.ic})"></i><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span><span class="chev">‹</span></button>`).join('')}
+    ${items.length > 3 ? `<button type="button" class="todo-more" id="todoMore">${todoAll ? 'عرض أقل' : 'عرض الكل ('+items.length+')'}</button>` : ''}</div>`;
+}
+let todoAll = false;
+document.addEventListener('click', ev => { if (ev.target.id==='todoMore') { todoAll = !todoAll; renderTodo(); } });
 
 function statusChips(e){
   const ch = (t,c) => `<span class="chip" style="--c:var(--${c});--cbg:var(--${c}-bg)">${t}</span>`;
@@ -228,9 +253,13 @@ function renderCal(evs){
   $('cal').innerHTML = h;
 }
 
+let showFuture = false;
 function renderList(evs){
-  const ds = evs.filter(e => e.duty);
-  if (!ds.length) { $('dlist').innerHTML = '<div class="empty">لا توجد خفارات في هذا الشهر.</div>'; return; }
+  const all = evs.filter(e => e.duty);
+  if (!all.length) { $('dlist').innerHTML = '<div class="empty">لا توجد خفارات في هذا الشهر.</div>'; return; }
+  const fut = all.filter(e => e.status==='future'), past = all.filter(e => e.status!=='future');
+  const ds = showFuture || !past.length ? all : past.slice().reverse();
+  const more = fut.length && past.length ? `<button type="button" class="btn ghost" id="toggleFuture">${showFuture ? 'إخفاء الخفارات القادمة' : 'عرض الخفارات القادمة ('+fut.length+')'}</button>` : '';
   $('dlist').innerHTML = ds.map(e => {
     let fps = '';
     if (e.status==='future') fps = `<span>${shiftRange(e.k)}</span>`;
@@ -238,7 +267,7 @@ function renderList(evs){
     const d = parseISO(e.date);
     return `<button class="drow" data-open="${e.date}"><span class="date"><b>${d.getDate()}</b><span>${DAYS[d.getDay()].replace('ال','')}</span></span>
       <span class="body"><span class="chips"><span class="chip" style="--c:var(--ink);--cbg:var(--sunk)">${SHIFT[e.k].n}</span>${statusChips(e)}${e.visit?'<span class="chip" style="--c:var(--primary);--cbg:var(--primary-soft)">زيارة موقع</span>':''}</span>${fps?`<span class="fprow">${fps}</span>`:''}${e.rec.note?`<span class="xs muted">${esc(e.rec.note)}</span>`:''}</span><span class="chev">‹</span></button>`;
-  }).join('');
+  }).join('') + more;
 }
 
 function leaveDesc(l){
@@ -267,22 +296,24 @@ function openDuty(date){
   $('dutySub').textContent = e.duty ? SHIFT[e.k].long+' · '+shiftRange(e.k) : 'يوم راحة';
   const ro = S.canWrite ? '' : 'disabled';
   const type = e.rec.type || '';
-  $('dutyBody').innerHTML = `
-    ${e.duty ? `<div class="chips">${statusChips(e)}</div>` : ''}
-    <div class="field"><label for="d_type">الخفارة في هذا اليوم</label>
+  const typeField = `<div class="field"><label for="d_type">الخفارة في هذا اليوم</label>
       <select id="d_type" ${ro}>
         <option value="">حسب الجدول (${sch?SHIFT[sch].long:'راحة'})</option>
         <option value="m" ${type==='m'?'selected':''}>صبح (تبديل أو إضافية)</option>
         <option value="e" ${type==='e'?'selected':''}>عصر (تبديل أو إضافية)</option>
         <option value="n" ${type==='n'?'selected':''}>ليل (تبديل أو إضافية)</option>
         <option value="off" ${type==='off'?'selected':''}>راحة (تبديل)</option>
-      </select></div>
+      </select></div>`;
+  $('dutyBody').innerHTML = `
+    ${e.duty ? `<div class="chips">${statusChips(e)}</div>` : ''}
+    ${e.duty ? '' : typeField}
     ${e.duty ? `<div class="seg-edit">
       <div class="fprows">${FP.map(([f,l]) => `<div class="fprow"><label class="flabel" for="t_${f}">${l}${e.state[f]==='exempt'?' <span class="xs muted">(معفاة)</span>':''}</label>
         <input type="time" id="t_${f}" value="${esc(e.rec[f]||'')}" ${ro}><button type="button" data-now="t_${f}" ${ro} aria-label="الوقت الحالي">الآن</button></div>`).join('')}</div>
       ${e.notes.length ? `<span class="xs" style="color:var(--late)">${e.notes.join(' · ')}</span>` : ''}
       ${e.win ? `<span class="xs muted">نافذة التواجد: ${winText(e)}</span>` : ''}
     </div>` : '<p class="small muted">إذا بدّلت مع أحد، اختر نوع الخفارة فوق واحفظ، وبعدها تقدر تسجل البصمات.</p>'}
+    ${e.duty ? `<details class="st-sec"><summary>تبديل أو تغيير نوع الخفارة</summary><div class="st-body">${typeField}</div></details>` : ''}
     ${e.lv.length ? `<div class="chips">${e.lv.map(l=>`<span class="chip" style="--c:var(--excused);--cbg:var(--excused-bg)">${KIND[l.kind]}${l.t1?' '+to12(l.t1)+' – '+to12(l.t2):''}</span>`).join('')}</div>` : ''}
     <div class="field"><label for="d_note">ملاحظة</label><input id="d_note" value="${esc(e.rec.note||'')}" placeholder="مثال: عطل جهاز البصمة، بدّلت مع فلان" ${ro}></div>
     <button class="btn primary big" type="submit" ${ro}>حفظ</button>
@@ -320,7 +351,7 @@ document.addEventListener('click', async ev => {
     await write(() => S.db.doc('days/'+date).set(r), 'تم تسجيل بصمة '+FPN[f]); return; }
   if (t.id==='dutyDel') { if (await write(() => S.db.doc('days/'+editing).delete(), 'تم المسح')) $('dutySheet').hidden = true; return; }
   const lf = t.closest('[data-leave-for]');
-  if (lf) { $('dutySheet').hidden = true; setTab('leaves'); $('lFrom').value = lf.dataset.leaveFor; $('lTo').value = lf.dataset.leaveFor; $('lKind').focus(); return; }
+  if (lf) { $('dutySheet').hidden = true; setTab('leaves'); $('leaveF').hidden = false; $('lAddBtn').hidden = true; $('lFrom').value = lf.dataset.leaveFor; $('lTo').value = lf.dataset.leaveFor; $('lKind').focus(); return; }
   const dl = t.closest('[data-del-leave]');
   if (dl) { await write(() => S.db.doc('leaves/'+dl.dataset.delLeave).delete(), 'تم الحذف'); return; }
 });
@@ -345,24 +376,37 @@ document.addEventListener('submit', async ev => {
     if (kind==='permission') { o.t1=$('lT1').value; o.t2=$('lT2').value; if(!o.t1||!o.t2){toast('حدد وقت بداية ونهاية الاستئذان');return;} }
     if (kind==='exemption') { o.covers=[...document.querySelectorAll('#lCovers input:checked')].map(i=>i.value); if(!o.covers.length){toast('اختر البصمة المعفاة');return;} }
     const note=$('lNote').value.trim(); if(note) o.note=note;
-    if (await write(() => S.db.collection('leaves').add(o), 'تمت الإضافة')) { f.reset(); syncLeaveForm(); }
+    if (await write(() => S.db.collection('leaves').add(o), 'تمت الإضافة')) { f.reset(); syncLeaveForm(); f.hidden = true; $('lAddBtn').hidden = false; }
   }
   if (f.id==='settingsF') {
     const crew = (document.querySelector('#crewCtl input:checked')||{}).value || 'D';
     const o = {name:$('stName').value.trim(), crew, grace:+$('stGrace').value||0, presAfter:+$('stPA').value||0, presLen:+$('stPL').value||60, permLimit:+$('stPerm').value||0, trackFrom:$('stFrom').value};
-    if (await write(() => S.db.doc('settings/main').set({...S.settings, ...o, fullName:$('stFull').value.trim(), siteTarget:+$('stTarget').value||12, siteAllowance:+$('stAllow').value||0, sickLimit:+$('stSick').value||15}), 'تم حفظ الإعدادات')) $('settingsSheet').hidden=true;
+    const all = {...S.ownSettings, ...o, fullName:$('stFull').value.trim(), siteTarget:+$('stTarget').value||12, siteAllowance:+$('stAllow').value||0, sickLimit:+$('stSick').value||15};
+    if (!S.isAdmin) for (const k of RULE_KEYS) { if (S.rules && S.rules[k] != null) delete all[k]; }
+    const ok = await write(async () => {
+      await S.db.doc('settings/main').set(all);
+      if (S.isAdmin) { const r = {}; for (const k of RULE_KEYS) r[k] = all[k]; r.updatedAt = new Date().toISOString(); await S.db.doc('config/rules').set(r); }
+    }, 'تم حفظ الإعدادات');
+    if (ok) $('settingsSheet').hidden=true;
   }
 });
 
 function syncLeaveForm(){
   const k=$('lKind').value;
   if (!$('lFrom').value) $('lFrom').value = todayISO();
-  $('lTimes').hidden = k!=='permission';
+  $('lTimesWrap').hidden = k!=='permission';
   $('lCovers').hidden = k!=='exemption';
   $('lToWrap').hidden = k==='permission' || k==='exemption';
   $('lFromL').textContent = FULLDAY.has(k) ? 'من تاريخ' : 'تاريخ الخفارة';
 }
 $('lKind').addEventListener('change', syncLeaveForm); syncLeaveForm();
+$('lAddBtn').onclick = () => { $('leaveF').hidden = false; $('lAddBtn').hidden = true; $('lKind').focus(); };
+$('lCancel').onclick = () => { $('leaveF').reset(); syncLeaveForm(); $('leaveF').hidden = true; $('lAddBtn').hidden = false; };
+document.addEventListener('click', ev => { const q = ev.target.closest('[data-qperm]'); if (!q) return;
+  const d = $('lFrom').value || todayISO(), k = shiftOf(d);
+  if (!k) { toast('هذا اليوم راحة في جدولك'); return; }
+  const s = SHIFT[k].start, e = s + SHIFT_H*60;
+  if (q.dataset.qperm==='first') { $('lT1').value = hhmm(s); $('lT2').value = hhmm(s+60); } else { $('lT1').value = hhmm(e-60); $('lT2').value = hhmm(e); } });
 
 $('crewCtl').innerHTML = Object.keys(CREW_MORNING).map(c => `<label><input type="radio" name="crew" value="${c}">${c}</label>`).join('');
 function openSettings(){
@@ -371,10 +415,28 @@ function openSettings(){
   document.querySelectorAll('#crewCtl input').forEach(i => i.checked = i.value===(s.crew||'D'));
   $('stGrace').value=s.grace??15; $('stPA').value=s.presAfter??120; $('stPL').value=s.presLen??60; $('stPerm').value=s.permLimit??4; $('stFrom').value=s.trackFrom||'';
   $('stFull').value=s.fullName||''; $('stTarget').value=s.siteTarget||12; $('stAllow').value=s.siteAllowance??200; $('stSick').value=s.sickLimit??15;
+  const locked = !S.isAdmin && !!S.rules;
+  ['stGrace','stPA','stPL','stPerm','stTarget','stAllow','stSick'].forEach(id => $(id).disabled = locked);
+  $('stRulesNote').textContent = S.isAdmin ? '· تنطبق على كل الفريق' : locked ? '· يحددها مدير الفريق' : '';
+  $('stPw').value = '';
   renderMembers();
   $('settingsSheet').hidden=false;
 }
 $('settingsBtn').onclick = openSettings;
+document.addEventListener('click', ev => { if (ev.target.id==='toggleFuture') { showFuture = !showFuture; render(); } });
+$('stPwSave').onclick = async () => {
+  const pw = $('stPw').value;
+  if (pw.length < 6) { toast('كلمة السر لازم 6 أحرف أو أكثر'); return; }
+  if (['123456','12345678','000000','111111'].includes(pw)) { toast('اختر كلمة سر غير الرمز المبدئي'); return; }
+  const {error} = await sb.auth.updateUser({password: pw});
+  if (error) { toast('ما تغيرت كلمة السر، جرّب مرة ثانية'); return; }
+  $('stPw').value = ''; toast('تم تغيير كلمة السر');
+};
+$('stPk').onclick = async () => {
+  if (!window.PublicKeyCredential) { toast('هالجهاز ما يدعم الدخول بالبصمة'); return; }
+  try { const {error} = await sb.auth.registerPasskey(); if (error) throw error; try { localStorage.setItem('mew.pkReg','1'); } catch(e){} toast('تم. المرة الجاية ادخل ببصمة الوجه أو الإصبع'); }
+  catch(e) { toast('ما تم التفعيل. جرّب مرة ثانية'); }
+};
 $('prev').onclick = () => { view.m--; if(view.m<0){view.m=11;view.y--;} render(); };
 $('next').onclick = () => { view.m++; if(view.m>11){view.m=0;view.y++;} render(); };
 $('todayBtn').onclick = () => { const t=new Date(); view={y:t.getFullYear(),m:t.getMonth()}; render(); };
@@ -455,15 +517,14 @@ function renderOverview(){
   const verdict = rate==null ? 'ما في خفارات محسوبة للحين' : rate===100 && !st.late && !st.missFp ? 'التزام كامل، بدون تأخير ولا نقص' : rate===100 ? 'داومت كل خفاراتك' : `غبت عن ${st.absent} ${st.absent===1?'خفارة':'خفارات'}`;
   let h = `<div class="card">
     <div class="card-head"><h2>الحضور والدوام</h2><span class="xs muted">${st.duties} خفارة في ${year?'السنة':'الشهر'}</span></div>
-    <div class="sprog">${ringSVG(rate==null?0:rate/100, rate==null?'—':rate+'%', '', rate!=null && rate<90 ? '--late' : '--ok')}
-      <div class="sprog-txt"><div class="money"><span class="num">${st.attended}</span> <small>من ${due} خفارة مضت</small></div>
-        <div class="small">${verdict}</div>
-        <div class="xs muted">${st.future ? 'باقي '+st.future+' خفارة قادمة' : ''}${st.excused ? (st.future?' · ':'')+st.excused+' بعذر' : ''}</div></div></div>
+    <div class="att"><div class="att-rate num" style="color:var(${rate!=null && rate<90 ? '--late' : '--ok'})">${rate==null?'—':rate+'%'}</div>
+      <div><div class="money"><span class="num">${st.attended}</span> <small>من ${due} خفارة مضت</small></div>
+        <div class="small">${verdict}${st.future ? ' · <span class="muted">باقي '+st.future+' قادمة</span>' : ''}${st.excused ? ' · <span class="muted">'+st.excused+' بعذر</span>' : ''}</div></div></div>
     ${st.duties ? `<div class="strip" role="img" aria-label="توزيع الخفارات حسب الحالة">${segs.map(s=>`<i style="flex:${st[s[0]]};background:var(${s[2]})" title="${s[1]}: ${st[s[0]]}"></i>`).join('')}</div>
     <div class="legend">${segs.map(s=>`<span><i style="--c:var(${s[2]})"></i>${s[1]} <b class="num">${st[s[0]]}</b></span>`).join('')}</div>` : ''}
   </div>`;
 
-  const tile = (l,v,s,c,bad) => `<div class="kpi" style="--k:var(${v?c:'--rest'})"><span class="top"><i style="background:var(${v?c:'--line'})"></i>${l}</span><span class="v">${v}</span><span class="s">${s}</span></div>`;
+  const tile = (l,v,s,c,bad) => `<button type="button" class="kpi" data-tab="calendar" style="--k:var(${v?c:'--rest'})"><span class="top"><i style="background:var(${v?c:'--line'})"></i>${l}</span><span class="v">${v}</span><span class="s">${s}</span></button>`;
   h += `<div class="kpis">
     ${tile('التأخير', st.late, st.lateMin ? 'المجموع '+fmtM(st.lateMin) : 'ما في تأخير', '--late')}
     ${tile('بصمات ناقصة', st.missFp, st.missFp ? 'في '+st.missShifts+' خفارة' : 'كل البصمات مسجلة', '--miss')}
@@ -472,11 +533,15 @@ function renderOverview(){
   </div>`;
 
   const sickLeft = sickLimit - ytd.sick;
-  h += `<div class="card"><div class="card-head"><h2>الإجازات والاستئذانات</h2><button class="btn sm" data-tab="leaves">إضافة</button></div>
-    ${meter('المرضيات في '+view.y, `${ytd.sick} من ${sickLimit} يوم`, ytd.sick/sickLimit, (sickLeft>=0 ? 'باقي لك '+sickLeft+' يوم' : 'تجاوزت الحد بـ '+(-sickLeft)+' يوم') + (year ? '' : ' · هالشهر '+st.sick), ytd.sick>sickLimit ? '--absent' : ytd.sick>=sickLimit*0.8 ? '--late' : '--excused')}
-    ${year ? meter('الاستئذانات', st.perms+' استئذان', null, st.permMin ? 'المجموع '+fmtM(st.permMin) : '')
-           : meter('الاستئذانات هالشهر', permLimit ? `${st.perms} من ${permLimit}` : String(st.perms), permLimit ? st.perms/permLimit : null, st.permMin ? 'المجموع '+fmtM(st.permMin) : '', permLimit && st.perms>=permLimit ? '--absent' : '--primary')}
-    <div class="minis"><div><b class="num">${st.vac}</b><span>يوم إجازة</span></div><div><b class="num">${st.mission}</b><span>يوم مهمة رسمية</span></div><div><b class="num">${st.exempt}</b><span>إعفاء بصمة</span></div></div>
+  const permTxt = permLimit && !year ? `${st.perms} من ${permLimit}` : String(st.perms);
+  const extra = [[st.vac,'يوم إجازة'],[st.mission,'يوم مهمة'],[st.exempt,'إعفاء بصمة']].filter(x=>x[0]>0);
+  h += `<div class="card"><div class="card-head"><h2>الإجازات والاستئذانات</h2><button class="btn sm" data-tab="leaves">+ إضافة</button></div>
+    <div class="lvline">
+      <div><span class="xs muted">الاستئذانات ${year?'بالسنة':'هالشهر'}</span><b class="num" style="color:var(${permLimit && !year && st.perms>=permLimit?'--absent':'--ink'})">${permTxt}</b></div>
+      <div><span class="xs muted">المرضيات في ${view.y}</span><b class="num" style="color:var(${ytd.sick>sickLimit?'--absent':ytd.sick>=sickLimit*0.8?'--late':'--ink'})">${ytd.sick} من ${sickLimit}</b></div>
+      ${extra.map(x=>`<div><span class="xs muted">${x[1]}</span><b class="num">${x[0]}</b></div>`).join('')}
+    </div>
+    ${sickLeft < 0 ? `<p class="xs" style="color:var(--absent)">تجاوزت حد المرضيات بـ ${-sickLeft} يوم</p>` : ''}
   </div>`;
 
   if (year) {
@@ -574,6 +639,7 @@ document.addEventListener('click', ev => {
 /* ---------- site visits ---------- */
 const STEPS = [['visited','الزيارة والفحص'],['photo','تصوير المحطة'],['sent','رفع التقرير بالتراسل'],['mgmt','اعتماد الإدارة'],['diwan','التقديم بالديوان'],['diwanOk','موافقة الديوان']];
 const STEP_NEXT = {visited:'زرت المحطة وفحصتها',photo:'صوّرت المحطة',sent:'رفعت التقرير بالتراسل',mgmt:'اعتمدته الإدارة',diwan:'قدّمته بالديوان',diwanOk:'وافق الديوان'};
+const STEP_SHORT = ['زيارة','تصوير','تراسل','الإدارة','الديوان','موافقة'];
 const EXN = {inPres:'إعفاء الحضور والتواجد', out:'إعفاء الانصراف'};
 const PRESETS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','يوجد نفايات بجانب المحطة وتم اللازم','يوجد أنقاض أمام المحطة','السور الخارجي بحاجة إلى صيانة','القفل تالف أو غير موجود','الباب غير محكم الإغلاق'];
 const memberLabel = m => m.name || ((m.email||'').endsWith('@mew-team.app') ? 'عضو' : (m.email||'').split('@')[0]);
@@ -590,7 +656,10 @@ const mapUrl = s => s && s.lat && s.lng ? `https://www.google.com/maps?q=${encod
 const diwanNote = v => `الكشف على محطة ${v.stationName||''}${v.area?' في '+v.area:''}`;
 function fmtDMY(d){ if(!d) return ''; const [y,m,dd] = d.split('-'); return `${+dd}/${+m}/${y}`; }
 
+let sview = 'visits';
+document.addEventListener('change', ev => { if (ev.target.name==='sview') { sview = ev.target.value; render(); } });
 function renderSites(){
+  document.querySelectorAll('[data-sv]').forEach(c => c.hidden = S.isAdmin && c.dataset.sv !== sview);
   const ym = ymOf();
   $('sMonthLabel').textContent = new Intl.DateTimeFormat('ar-KW-u-nu-latn-ca-gregory',{month:'long',year:'numeric'}).format(new Date(view.y,view.m,1));
   const vs = visitsIn(ym);
@@ -613,7 +682,7 @@ function renderSites(){
   const T = team();
   $('sVisits').innerHTML = vs.length ? vs.map(v => {
     const st = v.steps||{}, nx = nextStep(v);
-    const dots = STEPS.map(([k,l]) => `<i class="${st[k]?'on':''}" title="${l}"></i>`).join('');
+    const dots = STEPS.map(([k,l],i) => `<span class="sd ${st[k]?'on':''} ${nx&&nx[0]===k?'cur':''}"><i></i><small>${STEP_SHORT[i]}</small></span>`).join('');
     return `<div class="visit">
       <button class="vmain" data-visit="${v.id}">
         <span class="vtop"><b>${esc(v.stationName||'محطة')}</b><span class="xs muted">${fmtDate(claimOf(v),{weekday:'short',day:'numeric',month:'short'})}${v.visitDate && v.visitDate!==claimOf(v) ? ' · زرتها '+fmtDate(v.visitDate,{day:'numeric',month:'short'}) : ''}</span></span>
@@ -904,19 +973,27 @@ render();
 /* ---------- Supabase backend ---------- */
 const CFG = window.MEW_CONFIG || {};
 const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, experimental: { passkey: true } } });
-const TEAM_COLLS = new Set(['stations','plans']);
+const TEAM_COLLS = new Set(['stations','plans','config']);
 S.isAdmin = false; S.myIndex = 0; S.members = []; S.uid = null;
 
 function dbErr(e){ const m = (e && (e.message||'')) + ''; const err = new Error(m); err.code = (e && (e.code==='42501' || /row-level security|permission/i.test(m))) ? 'invalid_argument' : 'unavailable'; return err; }
+const RULE_KEYS = ['grace','presAfter','presLen','permLimit','sickLimit','siteTarget','siteAllowance'];
+// personal settings + the team rules the admin set (rules win for everyone)
+function mergeSettings(own){
+  S.ownSettings = {...(own||{})}; delete S.ownSettings.team;
+  const rules = {}; if (S.rules) for (const k of RULE_KEYS) if (S.rules[k] != null) rules[k] = S.rules[k];
+  return {...DEFAULTS, ...S.ownSettings, ...rules, team: teamNames()};
+}
 function applyLocal(coll, id, data){
-  if (coll==='settings') { S.settings = {...DEFAULTS, ...(data||{}), team: teamNames()}; }
+  if (coll==='settings') { S.settings = mergeSettings(data); }
+  else if (coll==='config' && id==='rules') { S.rules = data||null; S.settings = mergeSettings(localDoc('settings','main')); }
   else if (coll==='days') { if (data) S.days[id] = data; else delete S.days[id]; }
   else if (coll==='plans') { if (data) S.plans[id] = data; else delete S.plans[id]; }
   else if (['leaves','visits','stations'].includes(coll)) { const arr = S[coll].filter(x => x.id!==id); if (data) arr.push({id, ...data}); S[coll] = arr; }
   render();
 }
 function localDoc(coll, id){
-  if (coll==='settings') { const {team, ...rest} = S.settings; return rest; }
+  if (coll==='settings') { const {team, ...rest} = S.settings; return S.ownSettings || rest; }
   if (coll==='days') return S.days[id]; if (coll==='plans') return S.plans[id];
   const x = (S[coll]||[]).find(y => y.id===id); if (!x) return null; const {id:_, ...rest} = x; return rest;
 }
@@ -1013,7 +1090,7 @@ function fpRefresh(){
   $('fpNote').textContent = `تنحسب على ${k ? SHIFT[k].long : 'يوم'} ${fmtDate(c.date)}.` + (c.note ? ' ' + c.note : '');
   $('fpSave').disabled = false;
 }
-$('fpUpBtn').onclick = () => $('fpFile').click();
+document.addEventListener('click', ev => { if (ev.target.closest('[data-fpup]')) $('fpFile').click(); });
 $('fpFile').onchange = async e => {
   const file = e.target.files[0]; e.target.value = ''; if (!file) return;
   fpBlob = file;
@@ -1139,17 +1216,17 @@ async function afterLogin(session){
   document.body.classList.toggle('is-admin', S.isAdmin);
   const {data: rows, error} = await sb.from('docs').select('scope,coll,id,data').or(`scope.eq.${S.uid},scope.eq.team`);
   if (error) { banner('تعذّر تحميل البيانات. تأكد من الاتصال وافتح الموقع من جديد.'); return; }
-  S.days = {}; S.leaves = []; S.visits = []; S.stations = []; S.plans = {};
+  S.days = {}; S.leaves = []; S.visits = []; S.stations = []; S.plans = {}; S.rules = null;
   let settings = null;
   for (const r of rows) {
     if (r.coll==='settings') settings = r.data;
+    else if (r.coll==='config' && r.id==='rules') S.rules = r.data;
     else if (r.coll==='days') S.days[r.id] = r.data;
     else if (r.coll==='plans') S.plans[r.id] = r.data;
     else if (S[r.coll] && Array.isArray(S[r.coll])) S[r.coll].push({id:r.id, ...r.data});
   }
-  S.settings = {...DEFAULTS, name: mine.name, fullName: mine.full_name||'', ...(settings||{}), team: teamNames()};
+  S.settings = mergeSettings({name: mine.name, fullName: mine.full_name||'', ...(settings||{})});
   S.canWrite = true;
-  $('fpUpBtn').hidden = false;
   authView('in'); banner('');
   render();
   offerPasskey();
