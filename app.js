@@ -203,6 +203,41 @@ function renderHero(){
 }
 const CAM_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 
+/* push reminders */
+const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const b64ToU8 = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+async function pushSub(){ if (!pushOK()) return null; const reg = await navigator.serviceWorker.ready; return reg.pushManager.getSubscription(); }
+async function renderNotif(){
+  const hint = $('stNotifHint'); hint.hidden = true;
+  let sub = null; try { sub = await pushSub(); } catch(e){}
+  const on = !!sub && Notification.permission === 'granted';
+  $('stNotifState').textContent = on ? '· شغالة' : '';
+  $('stNotifOn').hidden = on; $('stNotifTest').hidden = !on; $('stNotifOff').hidden = !on;
+  if (!pushOK()) { hint.hidden = false; hint.textContent = isIOS() && !isStandalone() ? 'على الآيفون: ثبّت الموقع على الشاشة الرئيسية أول (زر المشاركة ثم «إضافة إلى الشاشة الرئيسية»)، وافتحه من الأيقونة، وبعدها فعّل التنبيهات.' : 'هالمتصفح ما يدعم التنبيهات.'; $('stNotifOn').hidden = true; }
+  else if (Notification.permission === 'denied') { hint.hidden = false; hint.textContent = 'التنبيهات مقفلة لهالموقع من إعدادات الجهاز أو المتصفح. فعّلها من هناك وارجع هنا.'; }
+}
+$('stNotifOn').onclick = async () => {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { renderNotif(); return; }
+    const {data, error} = await sb.functions.invoke('push', {body:{action:'vapid'}}); if (error || !data?.key) throw error || new Error('no key');
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64ToU8(data.key)});
+    const j = sub.toJSON();
+    const {error: e2} = await sb.from('push_subs').upsert({endpoint: j.endpoint, sub: j, user_id: S.uid}, {onConflict: 'endpoint'}); if (e2) throw e2;
+    toast('تم تفعيل التنبيهات'); renderNotif();
+  } catch(e) { toast('ما تفعّلت التنبيهات، جرّب مرة ثانية'); renderNotif(); }
+};
+$('stNotifTest').onclick = async () => {
+  const {data, error} = await sb.functions.invoke('push', {body:{action:'test'}});
+  toast(!error && data?.sent ? 'انرسل تنبيه التجربة' : 'ما وصل التنبيه. جرّب توقف التنبيهات وتفعّلها من جديد');
+};
+$('stNotifOff').onclick = async () => {
+  try { const sub = await pushSub(); if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); } toast('توقفت التنبيهات على هالجهاز'); } catch(e) {}
+  renderNotif();
+};
+
 /* yearly fingerprint log with proof screenshots */
 let logYear = new Date().getFullYear();
 function renderLog(){
@@ -488,6 +523,7 @@ function openSettings(){
   ['stGrace','stPA','stPL','stPerm','stTarget','stAllow','stSick'].forEach(id => $(id).disabled = locked);
   $('stRulesNote').textContent = S.isAdmin ? '· تنطبق على كل الفريق' : locked ? '· يحددها مدير الفريق' : '';
   $('stPw').value = '';
+  renderNotif();
   renderMembers();
   $('settingsSheet').hidden=false;
 }

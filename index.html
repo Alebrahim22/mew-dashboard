@@ -336,6 +336,14 @@
         <div class="actions"><button type="button" class="btn sm" id="stPwSave">تغيير كلمة السر</button><button type="button" class="btn sm" id="stPk">تفعيل الدخول ببصمة الوجه أو الإصبع</button></div>
       </div>
     </details>
+    <details class="st-sec" id="stNotifSec">
+      <summary>التنبيهات <span class="xs muted" id="stNotifState"></span></summary>
+      <div class="st-body">
+        <p class="small muted">يوصلك تنبيه قبل بداية الخفارة بربع ساعة، وأول ما تفتح نافذة التواجد، وقبل ما تقفل بربع ساعة، وعند نهاية الخفارة. التنبيه ما يوصلك إذا البصمة مسجلة أو معفاة.</p>
+        <p class="xs" id="stNotifHint" style="color:var(--late)" hidden></p>
+        <div class="actions"><button type="button" class="btn sm primary" id="stNotifOn">فعّل التنبيهات على هالجهاز</button><button type="button" class="btn sm" id="stNotifTest" hidden>أرسل تنبيه تجربة</button><button type="button" class="btn sm danger" id="stNotifOff" hidden>إيقاف</button></div>
+      </div>
+    </details>
     <details class="st-sec">
       <summary>قواعد الدوام والبدلات <span class="xs muted" id="stRulesNote"></span></summary>
       <div class="st-body">
