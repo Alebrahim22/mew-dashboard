@@ -1,4 +1,4 @@
 window.MEW_CONFIG = {
-  supabaseUrl: 'https://tfxnqivmtqyjsrkvsbsh.supabase.co',
-  supabaseKey: 'sb_publishable_EDzxtMseH79dyUIodAovRQ_QN6pGx1U'
+  supabaseUrl: 'https://fpmwiwafmfanbsngcvmg.supabase.co',
+  supabaseKey: 'sb_publishable_CzJttzMva-vM390_UnzHJQ_8Dj6Nsjz'
 };
