@@ -933,6 +933,7 @@ S.db = {
 };
 
 /* Google Drive through the `drive` edge function */
+
 async function driveCall(body){
   const {data, error} = await sb.functions.invoke('drive', {body});
   if (error) throw error; if (data && data.error) throw new Error(data.error); return data;
@@ -950,6 +951,108 @@ async function driveBlob(id){
   const bin = atob(r.data), u = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i);
   return driveCache[id] = new Blob([u], {type: r.mime||'image/jpeg'});
 }
+
+/* ---------- fingerprint from a screenshot (on-device OCR, no API key) ---------- */
+let fpOcr = null, fpBlob = null, fpGuess = null;
+function loadTesseract(){
+  if (window.Tesseract) return Promise.resolve();
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; s.onload = res; s.onerror = () => rej(new Error('تعذر تحميل قارئ الصور')); document.head.appendChild(s); });
+}
+async function ocrText(blob){
+  await loadTesseract();
+  if (!fpOcr) fpOcr = Tesseract.createWorker(['ara','eng']);
+  const w = await fpOcr;
+  const r = await w.recognize(blob);
+  return r.data.text || '';
+}
+// pure parser, also used by tests
+function parseFpText(txt){
+  const t = String(txt).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+  const dm = t.match(/(20\d{2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})/) || null;
+  const date = dm ? `${dm[1]}-${pad(+dm[2])}-${pad(+dm[3])}` : '';
+  let time = '', sec = '';
+  const tms = [...t.matchAll(/\b(\d{1,2})\s*:\s*(\d{2})(?:\s*:\s*(\d{2}))?\b/g)].filter(m => +m[1] < 24 && +m[2] < 60);
+  if (tms.length) { const m = tms[tms.length-1]; time = `${pad(+m[1])}:${m[2]}`; sec = m[3] || ''; }
+  const out = /خروج|الخروج|انصراف/.test(t), inn = /دخول|الدخول|دخولك|حضور/.test(t);
+  const kind = out && !inn ? 'out' : inn && !out ? 'in' : out ? 'out' : '';
+  return {date, time, sec, kind};
+}
+// which duty a punch at (date, time) belongs to: same day, or the previous night shift
+function fpShiftDate(date, time){
+  const t = parseISO(date).getTime() + mins(time)*60000;
+  for (const c of [date, addDays(date,-1), addDays(date,1)]) {
+    const k = shiftOf(c); if (!k) continue;
+    const s0 = startMs(c,k);
+    if (t >= s0 - 4*3600000 && t <= s0 + (SHIFT_H+4)*3600000) return c;
+  }
+  return date;
+}
+function fpClassify(g){
+  if (!g.date || !g.time) return null;
+  const d = fpShiftDate(g.date, g.time), rec = S.days[d] || {}, k = shiftOf(d);
+  let f = g.kind || 'in', note = '';
+  if (f === 'in') {
+    const pa = +S.settings.presAfter || 120;
+    if (rec.in && k) {
+      const gap = rel(g.time,k,'presence') - rel(rec.in,k,'in');
+      if (gap >= pa) f = 'presence';
+      else note = `عندك بصمة دخول ${to12(rec.in)} في نفس الخفارة، وهذي قبل ساعتين منها. إذا حفظتها راح تستبدل الأولى.`;
+    }
+  }
+  if (rec[f] && !note) note = `فيه بصمة ${FPN[f]} مسجلة ${to12(rec[f])}، وراح تستبدلها.`;
+  if (!k) note = (note ? note + ' ' : '') + 'هذا اليوم راحة في جدولك.';
+  return {date: d, f, note};
+}
+function fpRefresh(){
+  const g = {date:$('fpDate').value, time:$('fpTime').value, kind: $('fpType').dataset.kind || ''};
+  const c = fpClassify({...g, kind: $('fpType').value === 'out' ? 'out' : 'in'});
+  if (!c) { $('fpNote').textContent = ''; $('fpSave').disabled = true; return; }
+  const k = shiftOf(c.date);
+  $('fpNote').textContent = `تنحسب على ${k ? SHIFT[k].long : 'يوم'} ${fmtDate(c.date)}.` + (c.note ? ' ' + c.note : '');
+  $('fpSave').disabled = false;
+}
+$('fpUpBtn').onclick = () => $('fpFile').click();
+$('fpFile').onchange = async e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  fpBlob = file;
+  $('fpImg').src = URL.createObjectURL(file);
+  $('fpDate').value = ''; $('fpTime').value = ''; $('fpNote').textContent = ''; $('fpSave').disabled = true;
+  $('fpSub').textContent = 'نقرأ الصورة على جهازك…';
+  $('fpSheet').hidden = false;
+  try {
+    const g = parseFpText(await ocrText(file));
+    fpGuess = g;
+    $('fpDate').value = g.date; $('fpTime').value = g.time;
+    const c = fpClassify(g);
+    if (c) $('fpType').value = c.f; else $('fpType').value = g.kind === 'out' ? 'out' : 'in';
+    const miss = [!g.date && 'التاريخ', !g.time && 'الوقت', !g.kind && 'النوع'].filter(Boolean);
+    $('fpSub').textContent = miss.length ? `ما قدرت أقرأ ${miss.join(' و')}، عدّلها بنفسك.` : 'تأكد من البيانات واضغط سجّل.';
+    fpRefresh();
+  } catch (err) {
+    $('fpSub').textContent = 'تعذرت قراءة الصورة، اكتب البيانات بنفسك.';
+  }
+};
+['fpDate','fpTime'].forEach(id => $(id).addEventListener('change', () => { const c = fpClassify({date:$('fpDate').value, time:$('fpTime').value, kind: $('fpType').value==='out'?'out':(fpGuess?.kind||'in')}); if (c) $('fpType').value = c.f; fpRefresh(); }));
+$('fpType').addEventListener('change', fpRefresh);
+$('fpF').onsubmit = async e => {
+  e.preventDefault();
+  const date = $('fpDate').value, time = $('fpTime').value, f = $('fpType').value;
+  if (!date || !time) return;
+  const d = fpShiftDate(date, time);
+  const r = recFor(d); r[f] = time; r.updatedAt = new Date().toISOString();
+  r.src = {...(r.src||{}), [f]: 'screenshot'};
+  $('fpSave').disabled = true;
+  if (!await write(() => S.db.doc('days/'+d).set(r), 'تم تسجيل بصمة '+FPN[f]+' '+to12(time))) { $('fpSave').disabled = false; return; }
+  $('fpSheet').hidden = true;
+  if (fpBlob) {
+    const name = `${date} ${time.replace(':','-')} ${FPN[f]}.jpg`;
+    blobToB64(fpBlob).then(data => driveCall({action:'upload', date: d, folder: 'البصمات', name, mime: fpBlob.type || 'image/jpeg', data}))
+      .then(res => { if (res && res.id) { const r2 = recFor(d); r2.proof = {...(r2.proof||{}), [f]: res.id}; S.db.doc('days/'+d).set(r2).catch(()=>{}); toast('انحفظت الصورة في الدرايف'); } })
+      .catch(() => toast('انحفظت البصمة، بس الصورة ما انحفظت في الدرايف'));
+  }
+};
+window.__fp = {parseFpText, fpShiftDate, fpClassify, S};
+
 S.assets = {
   async upload(blob){ const v = visitFromForm(); const r = await driveUpload(blob, `صورة ${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`, 'image/jpeg', v); driveCache[r.id] = blob; return {id:r.id, url:r.url}; },
   async delete(id){ try { await driveCall({action:'delete', id}); } catch(e){} }
@@ -1044,6 +1147,7 @@ async function afterLogin(session){
   }
   S.settings = {...DEFAULTS, name: mine.name, fullName: mine.full_name||'', ...(settings||{}), team: teamNames()};
   S.canWrite = true;
+  $('fpUpBtn').hidden = false;
   authView('in'); banner('');
   render();
   offerPasskey();

@@ -43,6 +43,8 @@
   <!-- HOME -->
   <section data-view="home" style="display:flex;flex-direction:column;gap:16px">
     <div class="card hero" id="hero"></div>
+    <button type="button" class="btn big" id="fpUpBtn" hidden><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> ارفع صورة البصمة</button>
+    <input type="file" id="fpFile" accept="image/*" hidden>
     <div class="periodbar">
       <div class="seg-ctl" id="modeCtl" role="group" aria-label="الفترة"><label><input type="radio" name="pmode" value="month">الشهر</label><label><input type="radio" name="pmode" value="year">السنة</label></div>
       <div class="pnav">
@@ -187,6 +189,23 @@
     <div class="grab"></div>
     <div class="sheet-head"><div><h2 id="dutyTitle">—</h2><div class="xs muted" id="dutySub"></div></div><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div id="dutyBody" style="display:flex;flex-direction:column;gap:12px"></div>
+  </form>
+</div>
+
+<!-- fingerprint screenshot -->
+<div class="sheet-bg" id="fpSheet" hidden>
+  <form class="sheet" id="fpF">
+    <div class="grab"></div>
+    <div class="sheet-head"><div><h2>بصمة من صورة</h2><div class="xs muted" id="fpSub">نقرأ الصورة على جهازك…</div></div><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <img id="fpImg" alt="صورة البصمة" style="max-height:220px;object-fit:contain;border-radius:12px;border:1px solid var(--line);background:var(--bg)">
+    <div class="row">
+      <div class="field"><label for="fpDate">التاريخ في الصورة</label><input type="date" id="fpDate" required></div>
+      <div class="field"><label for="fpTime">الوقت</label><input type="time" id="fpTime" required></div>
+    </div>
+    <div class="field"><label for="fpType">نوع البصمة</label>
+      <select id="fpType"><option value="in">دخول</option><option value="presence">تواجد</option><option value="out">خروج</option></select></div>
+    <p class="xs muted" id="fpNote"></p>
+    <button type="submit" class="btn primary big" id="fpSave" disabled>سجّل البصمة</button>
   </form>
 </div>
 
