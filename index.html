@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>دوامي وبصماتي</title>
+<meta name="theme-color" content="#1F5FD1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="دوامي">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="locked">
+
+
+<header class="hdr">
+  <div class="hdr-in">
+    <div>
+      <h1>دوامي وبصماتي</h1>
+      <small id="who">وزارة الكهرباء والماء</small>
+    </div>
+    <div class="hdr-actions">
+      <button class="iconbtn" id="signOut" aria-label="تسجيل خروج" title="تسجيل خروج"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg></button>
+      <button class="iconbtn" id="themeBtn" aria-label="تغيير المظهر" title="المظهر"></button>
+      <button class="iconbtn" id="settingsBtn" aria-label="الإعدادات" title="الإعدادات"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+  </div>
+  <nav class="tabs" aria-label="الأقسام">
+    <button class="tab" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>الرئيسية</button>
+    <button class="tab" data-tab="calendar"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>الخفارات</button>
+    <button class="tab" data-tab="sites"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>المواقع</button>
+    <button class="tab" data-tab="leaves"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 13h6M9 17h4"/></svg>الإجازات</button>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- HOME -->
+  <section data-view="home" style="display:flex;flex-direction:column;gap:16px">
+    <div class="card hero" id="hero"></div>
+    <div class="periodbar">
+      <div class="seg-ctl" id="modeCtl" role="group" aria-label="الفترة"><label><input type="radio" name="pmode" value="month">الشهر</label><label><input type="radio" name="pmode" value="year">السنة</label></div>
+      <div class="pnav">
+        <button class="iconbtn" data-period="-1" aria-label="السابق"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+        <span class="label" id="periodLabel">—</span>
+        <button class="iconbtn" data-period="1" aria-label="التالي"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      </div>
+    </div>
+    <div id="ov"></div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section data-view="calendar" style="display:flex;flex-direction:column;gap:16px" hidden>
+    <div class="card">
+      <div class="monthbar">
+        <span class="label" id="monthLabel">—</span>
+        <div class="arrows">
+          <button class="iconbtn" id="prev" aria-label="الشهر السابق"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+          <button class="btn sm" id="todayBtn">اليوم</button>
+          <button class="iconbtn" id="next" aria-label="الشهر التالي"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        </div>
+      </div>
+      <div class="cal" id="cal"></div>
+      <div class="legend">
+        <span><i style="--c:var(--ok)"></i>مكتملة</span>
+        <span><i style="--c:var(--late)"></i>تأخير</span>
+        <span><i style="--c:var(--miss)"></i>بصمة ناقصة</span>
+        <span><i style="--c:var(--absent)"></i>غياب</span>
+        <span><i style="--c:var(--excused)"></i>إجازة / مرضية</span>
+        <span><i style="--c:var(--primary)"></i>خفارة قادمة</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>خفارات الشهر</h2><span class="xs muted">اضغط على الخفارة لتسجيل البصمات</span></div>
+      <div class="dlist" id="dlist"></div>
+    </div>
+    <div class="card">
+      <details>
+        <summary>+ لصق بصمات عدة خفارات دفعة واحدة</summary>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <p class="small muted">سطر لكل خفارة: تاريخ الخفارة ثم أوقات الدخول والتواجد والخروج. اكتب شرطة (-) مكان البصمة الناقصة. للخفارة الليلية اكتب تاريخ يوم بدايتها.</p>
+          <div class="field"><label for="bulk">البيانات</label><textarea id="bulk" rows="4" dir="ltr" placeholder="2026-11-14 06:55 09:10 15:00&#10;2026-11-16 22:58 01:15 07:00"></textarea></div>
+          <div class="actions"><button class="btn primary" id="bulkBtn">استيراد</button><span class="small muted" id="bulkMsg"></span></div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- SITES -->
+  <section data-view="sites" style="display:flex;flex-direction:column;gap:16px" hidden>
+    <div class="card">
+      <div class="monthbar">
+        <span class="label" id="sMonthLabel">—</span>
+        <div class="arrows">
+          <button class="iconbtn" data-month="-1" aria-label="الشهر السابق"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+          <button class="iconbtn" data-month="1" aria-label="الشهر التالي"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        </div>
+      </div>
+      <div class="sprog" id="sProg"></div>
+      <button class="btn primary big" id="newVisit">+ تسجيل زيارة موقع</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>زيارات الشهر</h2><span class="xs muted">الخطوة الجاية لكل زيارة تحت اسمها</span></div>
+      <div id="sVisits"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>محطاتي هالشهر</h2><span class="xs muted" id="sMineCount"></span></div>
+      <div id="sMine"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>توزيع المحطات على الفريق</h2></div>
+      <div class="team" id="sTeam"></div>
+      <div class="actions">
+        <button class="btn sm" id="autoPlan">توزيع تلقائي</button>
+        <button class="btn sm" id="copyPrev">نفس توزيع الشهر الماضي</button>
+        <button class="btn sm" id="copyPlan">نسخ التوزيع كنص</button>
+      </div>
+      <p class="xs muted">كل مهندس له محطاته بدون تكرار. إذا طلعتوا اثنين لنفس المحطة، سجّل زميلك في الزيارة وتنحسب لكم انتو الاثنين.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>محطات منطقة شرق</h2><button class="btn sm" id="addStation">+ محطة</button></div>
+      <div class="field"><label for="stSearch">بحث</label><input id="stSearch" placeholder="اسم المحطة أو رقم القطعة"></div>
+      <div id="sStations"></div>
+      <details>
+        <summary>+ استيراد قائمة محطات</summary>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <p class="small muted">سطر لكل محطة، والحقول مفصولة بفاصلة: الاسم، القطعة، الشارع، خط العرض، خط الطول. الإحداثيات اختيارية.</p>
+          <div class="field"><label for="stImport">القائمة</label><textarea id="stImport" rows="4" placeholder="المدينة 15, 1, 12, 29.3721, 47.9862"></textarea></div>
+          <div class="actions"><button class="btn primary" id="stImportBtn">استيراد</button><span class="small muted" id="stImportMsg"></span></div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- LEAVES -->
+  <section data-view="leaves" style="display:flex;flex-direction:column;gap:16px" hidden>
+    <div class="card">
+      <h2>إضافة استئذان أو إعفاء أو إجازة</h2>
+      <form id="leaveF" style="display:flex;flex-direction:column;gap:12px">
+        <div class="field"><label for="lKind">النوع</label>
+          <select id="lKind">
+            <option value="permission">استئذان (ساعات)</option>
+            <option value="exemption">إعفاء من بصمة</option>
+            <option value="sick">مرضية</option>
+            <option value="vacation">إجازة</option>
+            <option value="mission">مهمة رسمية / دورة</option>
+          </select></div>
+        <div class="row">
+          <div class="field"><label for="lFrom" id="lFromL">تاريخ الخفارة</label><input type="date" id="lFrom" required></div>
+          <div class="field" id="lToWrap"><label for="lTo">إلى تاريخ</label><input type="date" id="lTo"></div>
+        </div>
+        <div class="row" id="lTimes">
+          <div class="field"><label for="lT1">من الساعة</label><input type="time" id="lT1"></div>
+          <div class="field"><label for="lT2">إلى الساعة</label><input type="time" id="lT2"></div>
+        </div>
+        <div id="lCovers" hidden style="display:flex;flex-direction:column;gap:8px">
+                    <span class="flabel">البصمات المعفاة</span>
+          <div class="checks">
+            <label><input type="checkbox" value="in">دخول</label>
+            <label><input type="checkbox" value="presence">تواجد</label>
+            <label><input type="checkbox" value="out">خروج</label>
+          </div>
+        </div>
+        <div class="field"><label for="lNote">ملاحظة / رقم المعاملة</label><input id="lNote" placeholder="مثال: طلب رقم 4512"></div>
+        <button class="btn primary big" type="submit">حفظ</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2 id="leavesTitle">سجل الشهر</h2></div>
+      <div id="leaves"></div>
+    </div>
+  </section>
+</main>
+
+<!-- duty editor -->
+<div class="sheet-bg" id="dutySheet" hidden>
+  <form class="sheet" id="dutyF" aria-labelledby="dutyTitle">
+    <div class="grab"></div>
+    <div class="sheet-head"><div><h2 id="dutyTitle">—</h2><div class="xs muted" id="dutySub"></div></div><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div id="dutyBody" style="display:flex;flex-direction:column;gap:12px"></div>
+  </form>
+</div>
+
+<!-- visit editor -->
+<div class="sheet-bg" id="visitSheet" hidden>
+  <form class="sheet" id="visitF">
+    <div class="grab"></div>
+    <div class="sheet-head"><h2 id="visitTitle">زيارة موقع</h2><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="field"><label for="v_station">المحطة</label><select id="v_station"></select></div>
+    <div class="field" id="v_nameWrap" hidden><label for="v_name">اسم المحطة</label><input id="v_name"></div>
+    <div class="row3">
+      <div class="field"><label for="v_area">المنطقة</label><input id="v_area"></div>
+      <div class="field"><label for="v_block">القطعة</label><input id="v_block" inputmode="numeric"></div>
+      <div class="field"><label for="v_street">الشارع</label><input id="v_street"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="v_vdate">تاريخ الزيارة الفعلي</label><input type="date" id="v_vdate" required></div>
+      <div class="tin"><label class="flabel" for="v_time">الساعة</label><div class="wrapper"><input type="time" id="v_time"><button type="button" data-now="v_time">الآن</button></div></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="v_cdate">تاريخ التسليم</label><input type="date" id="v_cdate"></div>
+      <div class="field"><label for="v_ex">الإعفاء الجزئي من البصمة</label>
+        <select id="v_ex"><option value="none">بدون</option><option value="inPres">الحضور والتواجد</option><option value="out">الانصراف فقط</option></select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="v_type">نوع العمل</label><input id="v_type"></div>
+      <div class="field"><label for="v_partner">زميل معك بنفس الزيارة</label><select id="v_partner"></select></div>
+    </div>
+    <div class="field"><span class="flabel">ملاحظات الكشف (علّم على اللي تبيه ينذكر بالتقرير)</span><div class="obs" id="v_obs"></div></div>
+    <div class="field"><label for="v_desc">ملاحظة إضافية بكتابتك (اختياري)</label><textarea id="v_desc" rows="2"></textarea></div>
+    <div class="field"><span class="flabel">صور الموقع</span><div class="photos" id="v_photos"></div>
+      <label class="btn primary" for="v_cam" style="text-align:center;display:grid;place-items:center">📷 صوّر</label><input type="file" id="v_cam" accept="image/*" capture="environment" hidden>
+      <label class="btn" for="v_file" style="text-align:center;display:grid;place-items:center">+ من الاستديو</label><input type="file" id="v_file" accept="image/*" multiple hidden>
+      <span class="xs muted" id="v_photoNote"></span></div>
+    <div class="field"><label for="v_notes">خانة الملاحظات في النموذج</label><input id="v_notes" placeholder="اختياري"></div>
+    <div class="field"><span class="flabel">مراحل الزيارة</span><div class="steps-edit" id="v_steps"></div></div>
+    <div class="diwan" id="v_diwan"></div>
+    <button class="btn primary big" type="submit">حفظ الزيارة</button>
+    <div class="actions" style="justify-content:space-between">
+      <button type="button" class="btn" id="v_report">حفظ وتجهيز التقرير PDF</button>
+      <button type="button" class="btn sm danger" id="v_del" hidden>حذف الزيارة</button>
+    </div>
+  </form>
+</div>
+
+<!-- report -->
+<div class="sheet-bg" id="reportSheet" hidden>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="sheet-head"><div><h2>نموذج انتقال للعمل الميداني</h2><div class="xs muted">معبّأ من بيانات الزيارة. التواقيع تبقى بخط اليد.</div></div><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <img id="reportImg" alt="نموذج التقرير معبّأ" style="width:100%;border-radius:8px;border:1px solid var(--line);background:#fff">
+    <div class="actions" id="reportBtns">
+      <button class="btn primary" id="savePdf">حفظ PDF</button>
+      <button class="btn" id="saveJpg">حفظ صورة JPG</button>
+    </div>
+    <button class="btn primary big" id="shareBtn" hidden style="width:100%;margin-top:8px"></button>
+    <p class="xs muted" id="reportHint"></p>
+  </div>
+</div>
+
+<!-- station editor -->
+<div class="sheet-bg" id="stationSheet" hidden>
+  <form class="sheet" id="stationF">
+    <div class="grab"></div>
+    <div class="sheet-head"><h2 id="stationTitle">محطة</h2><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="field"><label for="sn_name">اسم / رقم المحطة</label><input id="sn_name" required placeholder="مثال: المدينة 15"></div>
+    <div class="row3">
+      <div class="field"><label for="sn_area">المنطقة</label><input id="sn_area"></div>
+      <div class="field"><label for="sn_block">القطعة</label><input id="sn_block"></div>
+      <div class="field"><label for="sn_street">الشارع</label><input id="sn_street"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="sn_lat">خط العرض</label><input id="sn_lat" inputmode="decimal" placeholder="29.37"></div>
+      <div class="field"><label for="sn_lng">خط الطول</label><input id="sn_lng" inputmode="decimal" placeholder="47.98"></div>
+    </div>
+    <div class="field"><label for="sn_addr">العنوان أو وصف المكان</label><input id="sn_addr"></div>
+    <button class="btn primary big" type="submit">حفظ المحطة</button>
+    <div class="actions" style="justify-content:space-between"><a class="btn sm" id="sn_map" target="_blank" rel="noopener" hidden>فتح بالخريطة</a><button type="button" class="btn sm danger" id="sn_del" hidden>حذف المحطة</button></div>
+  </form>
+</div>
+
+<!-- settings -->
+<div class="sheet-bg" id="settingsSheet" hidden>
+  <form class="sheet" id="settingsF">
+    <div class="grab"></div>
+    <div class="sheet-head"><h2>إعدادات الدوام</h2><button type="button" class="iconbtn" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="field"><label for="stName">الاسم</label><input id="stName"></div>
+    <div class="field"><span class="flabel">نوبتي في جدول الخفارات</span>
+      <div class="seg-ctl" id="crewCtl"></div>
+      <span class="xs muted">الجدول يدور كل ٥ أيام: صبح، عصر، ليل، ثم يومين راحة. مأخوذ من جدول خفارة مهندسي مراقبة محافظة العاصمة لشهر نوفمبر ٢٠٢٦.</span></div>
+    <div class="row3">
+      <div class="field"><label for="stGrace">سماحية التأخير (د)</label><input type="number" min="0" max="120" id="stGrace"></div>
+      <div class="field"><label for="stPA">التواجد بعد الدخول بـ (د)</label><input type="number" min="0" max="600" id="stPA"></div>
+      <div class="field"><label for="stPL">مدة نافذة التواجد (د)</label><input type="number" min="5" max="600" id="stPL"></div>
+    </div>
+    <div class="row"><div class="field"><label for="stPerm">حد الاستئذانات بالشهر</label><input type="number" min="0" max="31" id="stPerm"></div>
+    <div class="field"><label for="stFrom">بداية المتابعة</label><input type="date" id="stFrom"></div></div>
+    <span class="xs muted">الخفارات قبل تاريخ بداية المتابعة ما تنحسب غياب إذا ما سجلت بصماتها.</span>
+    <h3 style="margin-top:6px">زيارات المواقع</h3>
+    <div class="field"><label for="stFull">الاسم الكامل (يطلع في نموذج التقرير)</label><input id="stFull"></div>
+    <div class="row">
+      <div class="field"><label for="stTarget">عدد المواقع المطلوب بالشهر</label><input type="number" min="1" max="31" id="stTarget"></div>
+      <div class="field"><label for="stAllow">بدل الموقع الكامل (د.ك)</label><input type="number" min="0" id="stAllow"></div>
+      <div class="field"><label for="stSick">المرضيات المسموحة بالسنة</label><input type="number" min="0" max="365" id="stSick"></div>
+    </div>
+    <div class="field"><span class="flabel">أعضاء الفريق</span>
+      <div style="display:flex;flex-direction:column;gap:6px" id="stTeam"></div></div>
+    <button class="btn primary big" type="submit">حفظ الإعدادات</button>
+  </form>
+</div>
+
+
+<!-- login -->
+<div class="auth" id="auth" hidden>
+  <div class="auth-card">
+    <div class="auth-logo">⚡</div>
+    <h1>دوامي وبصماتي</h1>
+    <p class="muted xs">فريق مراقبة محافظة العاصمة · وزارة الكهرباء والماء</p>
+    <div id="authEmailBox">
+      <button class="btn primary big" id="authPasskey" type="button" style="width:100%">الدخول ببصمة الوجه أو الإصبع</button>
+      <div class="auth-or"><span>أو أول مرة من هالجهاز</span></div>
+      <form id="authForm">
+        <div class="field"><label for="authUser">اسم العائلة</label><input id="authUser" autocomplete="username webauthn" required></div>
+        <div class="field"><label for="authCode">رمز الدخول (٦ أرقام من محمد)</label><input id="authCode" type="password" inputmode="numeric" autocomplete="current-password" dir="ltr" required></div>
+        <button class="btn big" id="authGo" style="width:100%">دخول</button>
+      </form>
+    </div>
+    <p class="auth-msg" id="authMsg" role="alert"></p>
+  </div>
+</div>
+<div class="pk-offer" id="pkOffer" hidden>
+  <div><b>تبي تدخل المرة الجاية بالبصمة؟</b><div class="xs muted">بصمة الوجه أو الإصبع بدل الرمز.</div></div>
+  <div class="actions"><button class="btn primary sm" id="pkYes">فعّلها</button><button class="btn sm" id="pkNo">لاحقاً</button></div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

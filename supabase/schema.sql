@@ -1,0 +1,7 @@
+-- Applied to Supabase project mew-dashboard as migration init_team_schema (2026-11-14).
+-- members(idx, name, full_name, email, role admin|member)
+-- docs(scope, owner, coll, id, data jsonb): personal colls settings/days/leaves/visits (scope = owner uid),
+--   team colls stations/plans/config (scope='team').
+-- RLS: owner-only personal rows; team rows readable by any member, writable by admin.
+-- is_member()/is_admin() match auth.jwt() email against members.
+-- Trigger only_team_signup on auth.users rejects emails not listed in members.
