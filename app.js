@@ -258,9 +258,9 @@ function renderLog(){
     const m = +e.date.slice(5,7)-1;
     if (m !== curM) { if (curM !== -1) h += '</div>'; curM = m; h += `<h3 class="logm">${MONTHS[m]}</h3><div class="logtable">`; }
     const cell = f => {
-      const t = e.rec[f], st = e.state[f], pr = (e.rec.proof||{})[f];
+      const t = e.rec[f], st = e.state[f], pd = !t && st==='exempt' && (e.rec.proof||{}).diwan, pr = (e.rec.proof||{})[f] || pd;
       const v = t ? to12(t) : st==='exempt' ? 'معفاة' : st==='missing' ? '✕' : '—';
-      return `<span class="lc ${st==='missing'?'x':''}">${esc(v)}${pr ? ` <button type="button" class="proof" data-proof="${esc(pr)}" data-proof-t="${esc(FPN[f]+' '+fmtDate(e.date,{day:'numeric',month:'short'}))}" aria-label="صورة الإثبات">${CAM_IC}</button>` : ''}</span>`;
+      return `<span class="lc ${st==='missing'?'x':''}">${esc(v)}${pr ? ` <button type="button" class="proof" data-proof="${esc(pr)}" data-proof-t="${esc((pd ? 'موافقة الديوان' : FPN[f])+' '+fmtDate(e.date,{day:'numeric',month:'short'}))}" aria-label="صورة الإثبات">${CAM_IC}</button>` : ''}</span>`;
     };
     h += `<div class="logrow" role="button" tabindex="0" data-open="${e.date}"><span class="ld"><b>${+e.date.slice(8)}</b><small>${SHIFT[e.k].n}</small></span>${FP.map(([f]) => cell(f)).join('')}<span class="lst">${e.status==='excused' ? KIND[e.excuseKind] : e.status==='absent' ? 'غياب' : e.lateMin ? 'تأخير '+fmtM(e.lateMin) : e.missing ? 'ناقصة' : 'مكتملة'}</span></div>`;
   }
@@ -274,7 +274,7 @@ document.addEventListener('click', async ev => {
   const y = ev.target.closest('[data-logyear]'); if (y) { logYear += +y.dataset.logyear; renderLog(); return; }
   const pb = ev.target.closest('[data-proof]'); if (!pb) return;
   ev.stopPropagation(); ev.preventDefault();
-  $('proofTitle').textContent = 'إثبات بصمة ' + pb.dataset.proofT; $('proofBody').textContent = 'جاري التحميل من الدرايف…'; $('proofSheet').hidden = false;
+  $('proofTitle').textContent = (pb.dataset.proofT.startsWith('موافقة') ? '' : 'إثبات بصمة ') + pb.dataset.proofT; $('proofBody').textContent = 'جاري التحميل من الدرايف…'; $('proofSheet').hidden = false;
   try { const blob = await driveBlob(pb.dataset.proof); $('proofBody').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="صورة الإثبات" style="width:100%;border-radius:12px">`; }
   catch(e) { $('proofBody').textContent = 'ما قدرت أحمّل الصورة من الدرايف.'; }
 }, true);
@@ -1332,7 +1332,10 @@ function parseFpText(txt){
   if (tms.length) { const m = tms[tms.length-1]; time = `${pad(+m[1])}:${m[2]}`; sec = m[3] || ''; }
   const out = /خروج|الخروج|انصراف/.test(t), inn = /دخول|الدخول|دخولك|حضور/.test(t);
   const kind = out && !inn ? 'out' : inn && !out ? 'in' : out ? 'out' : '';
-  return {date, time, sec, kind};
+  // Diwan approval screenshot: an official-task / partial-exemption request
+  const diwan = /ديوان|مهمة\s*رسمية|مهمه\s*رسميه|إعفاء|اعفاء|معفى|إعفاء\s*جزئي/.test(t);
+  const ex = /انصراف|الانصراف|خروج/.test(t) && !/حضور|تواجد/.test(t) ? 'out' : /حضور|تواجد|دخول/.test(t) ? 'inPres' : '';
+  return {date, time, sec, kind, diwan, ex};
 }
 // which duty a punch at (date, time) belongs to: same day, or the previous night shift
 function fpShiftDate(date, time){
@@ -1360,7 +1363,23 @@ function fpClassify(g){
   if (!k) note = (note ? note + ' ' : '') + 'هذا اليوم راحة في جدولك.';
   return {date: d, f, note};
 }
+function diwanVisit(d){ return S.visits.find(v => claimOf(v)===d); }
+function fpMode(){
+  const dw = $('fpType').value === 'diwan';
+  $('fpExWrap').hidden = !dw; $('fpTimeWrap').hidden = dw; $('fpTime').required = !dw;
+  $('fpDateL').textContent = dw ? 'تاريخ الإعفاء' : 'التاريخ في الصورة';
+  $('fpSave').textContent = dw ? 'سجّل موافقة الديوان' : 'سجّل البصمة';
+  return dw;
+}
 function fpRefresh(){
+  if (fpMode()) {
+    const d = $('fpDate').value; if (!d) { $('fpNote').textContent = ''; $('fpSave').disabled = true; return; }
+    const v = diwanVisit(d), k = shiftOf(d);
+    $('fpNote').textContent = `إعفاء ${$('fpEx').value==='out' ? 'الانصراف' : 'الحضور والتواجد'} على ${k ? SHIFT[k].long : 'يوم'} ${fmtDate(d)}. ` +
+      (v ? `ينربط بزيارة ${vNames(v)} وتصير موافقة الديوان مكتملة. ` : 'ما في زيارة بهالتاريخ، فينسجل كإعفاء بصمة. ') +
+      'مع البصمة الثانية يصير يوم عمل كامل.';
+    $('fpSave').disabled = false; return;
+  }
   const g = {date:$('fpDate').value, time:$('fpTime').value, kind: $('fpType').dataset.kind || ''};
   const c = fpClassify({...g, kind: $('fpType').value === 'out' ? 'out' : 'in'});
   if (!c) { $('fpNote').textContent = ''; $('fpSave').disabled = true; return; }
@@ -1373,13 +1392,19 @@ $('fpFile').onchange = e => { const file = e.target.files[0]; e.target.value = '
 async function openFpFile(file){
   fpBlob = file;
   $('fpImg').src = URL.createObjectURL(file);
-  $('fpDate').value = ''; $('fpTime').value = ''; $('fpNote').textContent = ''; $('fpSave').disabled = true;
+  $('fpDate').value = ''; $('fpTime').value = ''; $('fpNote').textContent = ''; $('fpSave').disabled = true; $('fpType').value = 'in'; fpMode();
   $('fpSub').textContent = 'نقرأ الصورة على جهازك…';
   $('fpSheet').hidden = false;
   try {
     const g = parseFpText(await ocrText(file));
     fpGuess = g;
     $('fpDate').value = g.date; $('fpTime').value = g.time;
+    if (g.diwan) {
+      $('fpType').value = 'diwan'; if (g.ex) $('fpEx').value = g.ex;
+      else { const v = g.date && diwanVisit(g.date); if (v && v.exemption && v.exemption !== 'none') $('fpEx').value = v.exemption; }
+      $('fpSub').textContent = g.date ? 'هذي موافقة الديوان. تأكد من التاريخ ونوع الإعفاء واضغط سجّل.' : 'هذي موافقة الديوان. ما قدرت أقرأ التاريخ، اختاره بنفسك.';
+      fpRefresh(); return;
+    }
     const c = fpClassify(g);
     if (c) $('fpType').value = c.f; else $('fpType').value = g.kind === 'out' ? 'out' : 'in';
     const miss = [!g.date && 'التاريخ', !g.time && 'الوقت', !g.kind && 'النوع'].filter(Boolean);
@@ -1389,10 +1414,34 @@ async function openFpFile(file){
     $('fpSub').textContent = 'تعذرت قراءة الصورة، اكتب البيانات بنفسك.';
   }
 }
-['fpDate','fpTime'].forEach(id => $(id).addEventListener('change', () => { const c = fpClassify({date:$('fpDate').value, time:$('fpTime').value, kind: $('fpType').value==='out'?'out':(fpGuess?.kind||'in')}); if (c) $('fpType').value = c.f; fpRefresh(); }));
+['fpDate','fpTime'].forEach(id => $(id).addEventListener('change', () => { if (fpMode()) { fpRefresh(); return; } const c = fpClassify({date:$('fpDate').value, time:$('fpTime').value, kind: $('fpType').value==='out'?'out':(fpGuess?.kind||'in')}); if (c) $('fpType').value = c.f; fpRefresh(); }));
 $('fpType').addEventListener('change', fpRefresh);
+$('fpEx').addEventListener('change', fpRefresh);
+async function saveDiwan(){
+  const d = $('fpDate').value, ex = $('fpEx').value; if (!d) return;
+  $('fpSave').disabled = true;
+  const v = diwanVisit(d), today = todayISO();
+  const ok = await write(async () => {
+    if (v) {
+      const steps = {...(v.steps||{})}; for (const k of ['visited','photo','sent','mgmt','diwan']) if (!steps[k]) steps[k] = today; steps.diwanOk = steps.diwanOk || today;
+      await S.db.doc('visits/'+v.id).update({steps, exemption: ex});
+    } else if (!S.leaves.some(l => l.kind==='exemption' && l.from===d && l.diwan)) {
+      await S.db.collection('leaves').add({kind:'exemption', from:d, to:d, covers: ex==='out' ? ['out'] : ['in','presence'], diwan:true, note:'موافقة الديوان', createdAt:new Date().toISOString()});
+    }
+    const r = recFor(d); r.diwan = ex; r.updatedAt = new Date().toISOString(); r.src = {...(r.src||{}), diwan:'screenshot'};
+    await S.db.doc('days/'+d).set(r);
+  }, 'تم تسجيل موافقة الديوان');
+  if (!ok) { $('fpSave').disabled = false; return; }
+  $('fpSheet').hidden = true;
+  if (fpBlob) {
+    blobToB64(fpBlob).then(data => driveCall({action:'upload', date: d, folder: 'البصمات', name: `${d} موافقة الديوان.jpg`, mime: fpBlob.type || 'image/jpeg', data}))
+      .then(res => { if (res && res.id) { const r2 = recFor(d); r2.proof = {...(r2.proof||{}), diwan: res.id}; S.db.doc('days/'+d).set(r2).catch(()=>{}); if (v) S.db.doc('visits/'+v.id).update({diwanProof: res.id}).catch(()=>{}); toast('انحفظت صورة الموافقة في الدرايف'); } })
+      .catch(() => toast('انحفظت الموافقة، بس الصورة ما انحفظت في الدرايف'));
+  }
+}
 $('fpF').onsubmit = async e => {
   e.preventDefault();
+  if ($('fpType').value === 'diwan') return saveDiwan();
   const date = $('fpDate').value, time = $('fpTime').value, f = $('fpType').value;
   if (!date || !time) return;
   const d = fpShiftDate(date, time);
