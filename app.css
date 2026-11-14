@@ -452,3 +452,5 @@ button.kpi:active{transform:scale(.98)}
 .negck:has(input:checked){border-color:var(--late);background:var(--late-bg);color:var(--late);font-weight:600}
 .negck:has(input:checked)::before{content:"✕";font-size:.75rem}
 .negck:has(input:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
+.mallow{display:inline-flex;align-items:center;gap:4px;font-size:.8rem;color:var(--muted)}
+.mallow input{width:64px!important;min-height:36px!important;padding:4px 8px!important;text-align:center}

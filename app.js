@@ -490,7 +490,7 @@ document.addEventListener('submit', async ev => {
     if (!S.isAdmin) for (const k of RULE_KEYS) { if (S.rules && S.rules[k] != null) delete all[k]; }
     const ok = await write(async () => {
       await S.db.doc('settings/main').set(all);
-      if (S.isAdmin) { const r = {}; for (const k of RULE_KEYS) r[k] = all[k]; r.updatedAt = new Date().toISOString(); await S.db.doc('config/rules').set(r); }
+      if (S.isAdmin) { const r = {}; for (const k of RULE_KEYS) r[k] = all[k]; const keep = (S.rules||{}).allowances; if (keep) { r.allowances = {...keep, [String(S.myIndex)]: all.siteAllowance}; r.siteAllowance = (S.rules||{}).siteAllowance ?? r.siteAllowance; } r.updatedAt = new Date().toISOString(); await S.db.doc('config/rules').set(r); }
     }, 'تم حفظ الإعدادات');
     if (ok) $('settingsSheet').hidden=true;
   }
@@ -1263,6 +1263,8 @@ const RULE_KEYS = ['grace','presAfter','presLen','permLimit','sickLimit','siteTa
 function mergeSettings(own){
   S.ownSettings = {...(own||{})}; delete S.ownSettings.team;
   const rules = {}; if (S.rules) for (const k of RULE_KEYS) if (S.rules[k] != null) rules[k] = S.rules[k];
+  const al = S.rules && S.rules.allowances, mine = al && al[String(S.myIndex)];
+  if (mine != null) rules.siteAllowance = +mine;
   return {...DEFAULTS, ...S.ownSettings, ...rules, team: teamNames()};
 }
 function applyLocal(coll, id, data){
@@ -1482,7 +1484,7 @@ $('fpF').onsubmit = async e => {
       .catch(() => toast('انحفظت البصمة، بس الصورة ما انحفظت في الدرايف'));
   }
 };
-window.__fp = {parseFpText, fpShiftDate, fpClassify, ocrText, S, render, takeSharedImage, renderInstallTip};
+window.__fp = {parseFpText, fpShiftDate, fpClassify, ocrText, mergeSettings, S, render, takeSharedImage, renderInstallTip};
 
 S.assets = {
   async upload(blob){ const v = visitFromForm(); const r = await driveUpload(blob, `صورة ${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`, 'image/jpeg', v); driveCache[r.id] = blob; return {id:r.id, url:r.url}; },
@@ -1519,9 +1521,15 @@ async function handOff(){
 function renderMembers(){
   const el = $('stTeam'); if (!el) return;
   el.innerHTML = S.members.map(m => `<div class="mrow"><div><b>${esc(memberLabel(m))}</b> <span class="xs muted">· ${m.username?esc(m.username):'ما دخل للحين'}${m.role==='admin'?' · مدير':''}</span></div>
-    ${S.isAdmin ? `<div class="mbtns"><button type="button" class="btn sm" data-mreset="${m.idx}">رمز جديد</button>${m.role!=='admin'?`<button type="button" class="btn sm danger" data-mdel="${m.idx}">حذف</button>`:''}</div>` : ''}</div>`).join('')
+    ${S.isAdmin ? `<div class="mbtns"><label class="mallow" title="بدل الموقع الشهري">بدل <input type="number" inputmode="numeric" min="0" step="10" data-mallow="${m.idx}" value="${allowanceOf(m.idx)}"> د.ك</label><button type="button" class="btn sm" data-mreset="${m.idx}">رمز جديد</button>${m.role!=='admin'?`<button type="button" class="btn sm danger" data-mdel="${m.idx}">حذف</button>`:''}</div>` : ''}</div>`).join('')
     + (S.isAdmin ? `<div class="madd"><input id="mEmail" type="email" dir="ltr" placeholder="إيميل الزميل"><button type="button" class="btn sm primary" id="mAdd">إضافة</button></div><p class="xs muted">بعد الإضافة يطلع لك رمز دخول مبدئي ترسله له. يدخل فيه بإيميله، ويختار اسمه وكلمة سر جديدة أول مرة.</p><p class="xs muted" id="mCode" role="status"></p>` : '');
 }
+const allowanceOf = idx => { const al = S.rules && S.rules.allowances; return al && al[String(idx)] != null ? +al[String(idx)] : (+(S.rules||{}).siteAllowance || 200); };
+document.addEventListener('change', async ev => {
+  const t = ev.target.closest('[data-mallow]'); if (!t || !S.isAdmin) return;
+  const v = Math.max(0, +t.value || 0), r = {...(S.rules||{})}; r.allowances = {...(r.allowances||{}), [t.dataset.mallow]: v}; r.updatedAt = new Date().toISOString();
+  await write(() => S.db.doc('config/rules').set(r), 'تم حفظ بدل ' + memberLabel(S.members.find(m => m.idx===+t.dataset.mallow) || {}));
+});
 async function membersCall(body){
   const {data, error} = await sb.functions.invoke('members', {body});
   if (error) { let m = ''; try { m = (await error.context.json()).error; } catch(e){} throw new Error(m || error.message); }
