@@ -574,7 +574,8 @@ const STEPS = [['visited','الزيارة والفحص'],['photo','تصوير ا
 const STEP_NEXT = {visited:'زرت المحطة وفحصتها',photo:'صوّرت المحطة',sent:'رفعت التقرير بالتراسل',mgmt:'اعتمدته الإدارة',diwan:'قدّمته بالديوان',diwanOk:'وافق الديوان'};
 const EXN = {inPres:'إعفاء الحضور والتواجد', out:'إعفاء الانصراف'};
 const PRESETS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','يوجد نفايات بجانب المحطة وتم اللازم','يوجد أنقاض أمام المحطة','السور الخارجي بحاجة إلى صيانة','القفل تالف أو غير موجود','الباب غير محكم الإغلاق'];
-const teamNames = () => { const a=[]; S.members.forEach(m => a[m.idx]=m.name); return Array.from(a, x => x||'(محذوف)'); };
+const memberLabel = m => m.name || ((m.email||'').endsWith('@mew-team.app') ? 'عضو' : (m.email||'').split('@')[0]);
+const teamNames = () => { const a=[]; S.members.forEach(m => a[m.idx]=memberLabel(m)); return Array.from(a, x => x||'(محذوف)'); };
 const team = () => { if (S.members.length) return teamNames(); const t = S.settings.team && S.settings.team.length ? S.settings.team.slice() : []; while (t.length<5) t.push(t.length===0 ? (S.settings.name||'أنا') : 'زميل '+(t.length+1)); return t; };
 const ymOf = () => view.y+'-'+pad(view.m+1);
 const claimOf = v => v.claimDate || v.visitDate || '';
@@ -983,9 +984,9 @@ async function handOff(){
 /* ---------- team members (admin) ---------- */
 function renderMembers(){
   const el = $('stTeam'); if (!el) return;
-  el.innerHTML = S.members.map(m => `<div class="mrow"><div><b>${esc(m.name)}</b> <span class="xs muted">· ${esc(m.username||'')}${m.role==='admin'?' · مدير':''}</span></div>
-    ${S.isAdmin ? `<div class="mbtns"><button type="button" class="btn sm" data-mreset="${m.idx}">رمز جديد</button>${m.role!=='admin'?`<button type="button" class="btn sm danger" data-mdel="${m.idx}">حذف</button>`:''}</div>` : ''}</div>`).join('')
-    + (S.isAdmin ? `<div class="madd"><input id="mName" placeholder="الاسم (مثلاً: أحمد)"><input id="mUser" placeholder="اسم العائلة (للدخول)"><button type="button" class="btn sm primary" id="mAdd">إضافة</button></div><p class="xs muted" id="mCode" role="status"></p>` : '');
+  el.innerHTML = S.members.map(m => `<div class="mrow"><div><b>${esc(memberLabel(m))}</b> <span class="xs muted">· ${m.username?esc(m.username):'ما دخل للحين'}${m.role==='admin'?' · مدير':''}</span></div>
+    ${S.isAdmin ? `<div class="mbtns">${(m.email||'').endsWith('@mew-team.app')?`<button type="button" class="btn sm" data-mreset="${m.idx}">رمز جديد</button>`:''}${m.role!=='admin'?`<button type="button" class="btn sm danger" data-mdel="${m.idx}">حذف</button>`:''}</div>` : ''}</div>`).join('')
+    + (S.isAdmin ? `<div class="madd"><input id="mEmail" type="email" dir="ltr" placeholder="إيميل الزميل"><button type="button" class="btn sm primary" id="mAdd">إضافة</button></div><p class="xs muted">يدخل أول مرة برمز يوصله على إيميله، ويختار اسمه وكلمة السر بنفسه.</p><p class="xs muted" id="mCode" role="status"></p>` : '');
 }
 async function membersCall(body){
   const {data, error} = await sb.functions.invoke('members', {body});
@@ -998,10 +999,10 @@ document.addEventListener('click', async ev => {
   const t = ev.target.closest('[data-mreset],[data-mdel],#mAdd'); if (!t || !S.isAdmin) return;
   try {
     if (t.id==='mAdd') {
-      const name = $('mName').value.trim(), username = $('mUser').value.trim(); if (!name || !username) { toast('اكتب الاسم واسم العائلة'); return; }
+      const email = $('mEmail').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('اكتب إيميل صحيح'); return; }
       const idx = S.members.reduce((a,m)=>Math.max(a,m.idx),-1)+1;
-      t.disabled = true; const r = await membersCall({action:'upsert', idx, name, username, role:'member'});
-      await reloadMembers(); if (r.code) showCode(name, username, r.code);
+      t.disabled = true; await membersCall({action:'invite', idx, email});
+      await reloadMembers(); toast('تمت إضافة '+email);
     } else if (t.dataset.mreset) {
       const m = S.members.find(x=>x.idx===+t.dataset.mreset); t.disabled = true;
       const r = await membersCall({action:'upsert', idx:m.idx, reset:true}); renderMembers(); showCode(m.name, m.username, r.code);
@@ -1029,6 +1030,7 @@ async function afterLogin(session){
   const mine = S.members.find(m => (m.email||'').toLowerCase()===email);
   if (!mine) { await sb.auth.signOut(); authView('out', 'حسابك غير مسجل في الفريق. كلّم محمد يضيفك.'); return; }
   S.isAdmin = mine.role==='admin'; S.myIndex = mine.idx; S.me = mine;
+  if (openSetup(session)) { authView('out'); $('auth').hidden = true; return; }
   document.body.classList.toggle('is-admin', S.isAdmin);
   const {data: rows, error} = await sb.from('docs').select('scope,coll,id,data').or(`scope.eq.${S.uid},scope.eq.team`);
   if (error) { banner('تعذّر تحميل البيانات. تأكد من الاتصال وافتح الموقع من جديد.'); return; }
@@ -1070,13 +1072,61 @@ $('authForm').addEventListener('submit', async ev => {
   try {
     const {data: email, error: e1} = await sb.rpc('login_email', {u: user});
     if (e1) throw e1;
-    if (!email) { $('authMsg').textContent = 'اسم العائلة هذا غير مسجل بالفريق.'; return; }
+    if (!email) { $('authMsg').textContent = 'هذا الاسم أو الإيميل غير مسجل بالفريق.'; return; }
     const {error} = await sb.auth.signInWithPassword({email, password: code});
-    if (error) { $('authMsg').textContent = /invalid/i.test(error.message) ? 'الرمز غير صحيح.' : 'ما قدرنا ندخلك، حاول بعد دقيقة.'; return; }
+    if (error) { $('authMsg').textContent = /invalid/i.test(error.message) ? 'كلمة السر غير صحيحة. إذا ما عندك كلمة سر، ادخل برمز على إيميلك.' : 'ما قدرنا ندخلك، حاول بعد دقيقة.'; return; }
     try { localStorage.setItem('mew.user', user); } catch(e){}
   } catch(e) { $('authMsg').textContent = 'تعذّر الاتصال، تأكد من الإنترنت.'; }
   finally { $('authGo').disabled = false; }
 });
+
+/* passwordless: 6-digit code by email, then pick a password */
+const showOtp = on => { $('authEmailBox').hidden = on; $('authOtpBox').hidden = !on; $('authMsg').textContent = ''; if (on) { $('otpForm').hidden = false; $('otpVerify').hidden = true; const u = $('authUser').value.trim(); if (u.includes('@')) $('otpEmail').value = u; } };
+$('authOtpOpen').onclick = () => showOtp(true);
+$('authOtpBack').onclick = () => showOtp(false);
+let otpEmail = '';
+$('otpForm').addEventListener('submit', async ev => {
+  ev.preventDefault(); otpEmail = $('otpEmail').value.trim().toLowerCase(); if (!otpEmail) return;
+  $('otpSend').disabled = true; $('authMsg').textContent = '';
+  const {error} = await sb.auth.signInWithOtp({email: otpEmail, options: {shouldCreateUser: true}});
+  $('otpSend').disabled = false;
+  if (error) { $('authMsg').textContent = /not allowed|Database error|signups/i.test(error.message) ? 'هذا الإيميل غير مسجل بالفريق. كلّم محمد.' : /rate|seconds/i.test(error.message) ? 'انتظر دقيقة وجرب مرة ثانية.' : 'ما قدرنا نرسل الرمز، حاول بعد شوي.'; return; }
+  $('otpForm').hidden = true; $('otpVerify').hidden = false; $('otpSentTo').textContent = 'أرسلنا رمز إلى ' + otpEmail + '. شيك البريد الوارد والـ Junk.'; $('otpCode').focus();
+});
+$('otpVerify').addEventListener('submit', async ev => {
+  ev.preventDefault(); const token = $('otpCode').value.replace(/\s/g,''); if (!token) return;
+  $('otpGo').disabled = true; $('authMsg').textContent = '';
+  const {error} = await sb.auth.verifyOtp({email: otpEmail, token, type: 'email'});
+  $('otpGo').disabled = false;
+  if (error) { $('authMsg').textContent = 'الرمز غير صحيح أو انتهى. اطلب رمز جديد.'; return; }
+  try { localStorage.setItem('mew.user', otpEmail); } catch(e){}
+});
+
+/* first sign-in: profile (if missing) + own password */
+function needsSetup(session){ const noProfile = !S.me || !S.me.name || !S.me.username; const noPw = !(session.user.user_metadata||{}).pw_set; return {noProfile, noPw, any: noProfile || noPw}; }
+function openSetup(session){
+  const n = needsSetup(session); if (!n.any) return false;
+  $('setupProfile').hidden = !n.noProfile; $('setupPw').hidden = !n.noPw;
+  $('suName').required = $('suUser').required = n.noProfile; $('suPw').required = n.noPw;
+  $('setupHint').textContent = n.noProfile && n.noPw ? 'عرّفنا عليك واختر كلمة سر، والمرات الجاية تدخل باسم عائلتك وكلمة السر أو بالبصمة.' : n.noPw ? 'اختر كلمة سر خاصة فيك، والمرات الجاية تدخل فيها أو بالبصمة.' : 'عرّفنا عليك عشان يطلع اسمك للفريق.';
+  $('setup').hidden = false; return true;
+}
+$('setupForm').addEventListener('submit', async ev => {
+  ev.preventDefault(); $('suGo').disabled = true; $('suMsg').textContent = '';
+  try {
+    if (!$('setupProfile').hidden) {
+      const {error} = await sb.rpc('set_my_profile', {p_name: $('suName').value, p_full_name: $('suFull').value, p_username: $('suUser').value});
+      if (error) throw new Error(/login_key|unique/i.test(error.message) ? 'اسم العائلة هذا مستخدم لعضو ثاني. أضف حرف أو الاسم الثاني.' : 'ما انحفظت البيانات.');
+    }
+    if (!$('setupPw').hidden) {
+      const {error} = await sb.auth.updateUser({password: $('suPw').value, data: {pw_set: true}});
+      if (error) throw new Error(/weak|short|6/i.test(error.message) ? 'كلمة السر قصيرة.' : /same/i.test(error.message) ? 'اختر كلمة سر غير القديمة.' : 'ما انحفظت كلمة السر.');
+    }
+    $('setup').hidden = true; booted = false; const {data} = await sb.auth.getSession(); if (data.session) { booted = true; afterLogin(data.session); }
+  } catch(e) { $('suMsg').textContent = e.message; }
+  finally { $('suGo').disabled = false; }
+});
+
 $('signOut').onclick = async () => { await sb.auth.signOut(); location.reload(); };
 try { $('authUser').value = localStorage.getItem('mew.user')||''; } catch(e){}
 $('shareBtn').onclick = handOff;

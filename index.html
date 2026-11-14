@@ -309,12 +309,44 @@
       <button class="btn primary big" id="authPasskey" type="button" style="width:100%">الدخول ببصمة الوجه أو الإصبع</button>
       <div class="auth-or"><span>أو أول مرة من هالجهاز</span></div>
       <form id="authForm">
-        <div class="field"><label for="authUser">اسم العائلة</label><input id="authUser" autocomplete="username webauthn" required></div>
-        <div class="field"><label for="authCode">رمز الدخول (٦ أرقام من محمد)</label><input id="authCode" type="password" inputmode="numeric" autocomplete="current-password" dir="ltr" required></div>
+        <div class="field"><label for="authUser">اسم العائلة أو الإيميل</label><input id="authUser" autocomplete="username webauthn" required></div>
+        <div class="field"><label for="authCode">كلمة السر</label><input id="authCode" type="password" autocomplete="current-password" dir="ltr" required></div>
         <button class="btn big" id="authGo" style="width:100%">دخول</button>
       </form>
+      <button type="button" class="linkbtn" id="authOtpOpen">أول مرة تدخل، أو نسيت كلمة السر؟ ادخل برمز على إيميلك</button>
+    </div>
+    <div id="authOtpBox" hidden>
+      <form id="otpForm">
+        <div class="field"><label for="otpEmail">إيميلك المسجل بالفريق</label><input id="otpEmail" type="email" inputmode="email" autocomplete="email" dir="ltr" required></div>
+        <button class="btn primary big" id="otpSend" style="width:100%">أرسل لي رمز الدخول</button>
+      </form>
+      <form id="otpVerify" hidden>
+        <p class="xs muted" id="otpSentTo"></p>
+        <div class="field"><label for="otpCode">الرمز اللي وصلك</label><input id="otpCode" inputmode="numeric" autocomplete="one-time-code" dir="ltr" maxlength="10" required></div>
+        <button class="btn primary big" id="otpGo" style="width:100%">دخول</button>
+      </form>
+      <button type="button" class="linkbtn" id="authOtpBack">رجوع</button>
     </div>
     <p class="auth-msg" id="authMsg" role="alert"></p>
+  </div>
+</div>
+
+<div class="auth" id="setup" hidden>
+  <div class="auth-card">
+    <h1>أهلاً فيك</h1>
+    <p class="muted xs" id="setupHint">خطوة وحدة قبل ما تبدأ.</p>
+    <form id="setupForm" style="display:flex;flex-direction:column;gap:10px;text-align:start">
+      <div id="setupProfile">
+        <div class="field"><label for="suName">اسمك الأول (يطلع للفريق)</label><input id="suName" maxlength="40"></div>
+        <div class="field"><label for="suUser">اسم العائلة (تدخل فيه)</label><input id="suUser" maxlength="40"></div>
+        <div class="field"><label for="suFull">الاسم الكامل</label><input id="suFull" maxlength="80"></div>
+      </div>
+      <div id="setupPw">
+        <div class="field"><label for="suPw">اختر كلمة سر (٦ أحرف أو أكثر)</label><input id="suPw" type="password" autocomplete="new-password" dir="ltr" minlength="6"></div>
+      </div>
+      <button class="btn primary big" id="suGo">حفظ</button>
+      <p class="auth-msg" id="suMsg" role="alert"></p>
+    </form>
   </div>
 </div>
 <div class="pk-offer" id="pkOffer" hidden>

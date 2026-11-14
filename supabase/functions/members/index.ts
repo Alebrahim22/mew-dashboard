@@ -39,6 +39,14 @@ Deno.serve(async (req) => {
     await admin.from("members").delete().eq("idx", idx);
     return json({ ok: true });
   }
+  if (b.action === "invite") {
+    const email = String(b.email ?? "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "bad_email" }, 400);
+    if (cur) return json({ error: "idx_taken" }, 400);
+    const { error } = await admin.from("members").insert({ idx, name: "", email, role: "member" });
+    if (error) return json({ error: /email/.test(error.message) ? "email_taken" : error.message }, 400);
+    return json({ ok: true });
+  }
   if (b.action !== "upsert") return json({ error: "bad_action" }, 400);
 
   const row = {

@@ -285,6 +285,8 @@ body:not(.is-admin) .admin-only{display:none!important}
 
 .mrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
 .mbtns{display:flex;gap:6px}
-.madd{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:4px}
+.madd{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:4px}
 .madd input{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 11px;min-height:44px;min-width:0;color:var(--ink)}
-@media (max-width:420px){.madd{grid-template-columns:1fr 1fr}.madd .btn{grid-column:1/-1}}
+
+
+.linkbtn{background:none;border:0;color:var(--primary);font:inherit;font-size:.85rem;padding:8px 4px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
