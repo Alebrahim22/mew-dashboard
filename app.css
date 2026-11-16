@@ -462,3 +462,26 @@ button.kpi:active{transform:scale(.98)}
 .rep-ic{flex:none;width:40px;height:40px;border-radius:10px;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-size:.7rem;font-weight:800}
 .rep .stbody{flex:1;min-width:0}
 .geo{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-4px 0 4px}
+
+/* coverage + shared visits */
+.cov{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.covbar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--sunk)}
+.covbar i{display:block;height:100%}
+.covleg{display:flex;flex-wrap:wrap;gap:6px 14px}
+.covleg span{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted)}
+.covleg b{color:var(--ink)}
+.covleg em{width:9px;height:9px;border-radius:50%;display:inline-block}
+.srow{display:flex;flex-direction:column;gap:8px;padding:11px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.srow .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.srow .btns{display:flex;gap:8px}
+.srow .btns .btn{flex:1;justify-content:center}
+.dist{font-size:.74rem;color:var(--muted)}
+.sharebox{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--sunk);display:flex;flex-direction:column;gap:8px;font-size:.85rem}
+.shrow{display:flex;flex-direction:column;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.shrow:last-child{border-bottom:0}
+a.btn{text-decoration:none;color:var(--ink)}
+a.btn.primary{color:var(--primary-ink)}
+.strow{flex-wrap:wrap}
+.strow .stbody{flex:1;min-width:0}
+.strow .lc{flex-basis:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap}

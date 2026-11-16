@@ -321,10 +321,11 @@ function renderTodo(){
   }
   const vs = S.visits.filter(v => nextStep(v) && v.steps && v.steps.visited).sort((a,b) => (claimOf(b)||'').localeCompare(claimOf(a)||'')).slice(0,4);
   for (const v of vs) items.push({visit:v.id, ic:'late', t:`${vNames(v)||'زيارة'}: ${nextStep(v)[1]}`, s:'الخطوة الجاية للزيارة'});
+  S.shares.filter(x => x.to_uid === S.uid && x.status === 'pending').forEach(x => items.unshift({tab:'sites', ic:'late', t:`${x.from_name||'زميلك'} شاركك زيارة`, s:'اقبلها أو ارفضها'}));
   if (!items.length) { $('todo').innerHTML = ''; return; }
   const shown = todoAll ? items : items.slice(0,3);
   $('todo').innerHTML = `<div class="card todo"><div class="card-head"><h2>المطلوب منك</h2><span class="xs muted">${items.length} ${items.length===1?'مهمة':items.length<=10?'مهام':'مهمة'}</span></div>
-    ${shown.map(x => `<button class="todo-row" ${x.open?`data-open="${x.open}"`:`data-visit="${x.visit}"`}><i style="--c:var(--${x.ic})"></i><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span><span class="chev">‹</span></button>`).join('')}
+    ${shown.map(x => `<button class="todo-row" ${x.tab?`data-tab="${x.tab}"`:x.open?`data-open="${x.open}"`:`data-visit="${x.visit}"`}><i style="--c:var(--${x.ic})"></i><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span><span class="chev">‹</span></button>`).join('')}
     ${items.length > 3 ? `<button type="button" class="todo-more" id="todoMore">${todoAll ? 'عرض أقل' : 'عرض الكل ('+items.length+')'}</button>` : ''}</div>`;
 }
 let todoAll = false;
@@ -851,39 +852,151 @@ function renderSites(){
         <span class="chips">${nx ? `<span class="chip" style="--c:var(--late);--cbg:var(--late-bg)">الخطوة الجاية: ${nx[1]}</span>` : `<span class="chip" style="--c:var(--ok);--cbg:var(--ok-bg)">مكتملة</span>`}
           ${v.exemption && v.exemption!=='none' ? `<span class="chip" style="--c:var(--excused);--cbg:var(--excused-bg)">${EXN[v.exemption]}</span>` : ''}
           ${(v.photos||[]).length ? `<span class="chip">${v.photos.length} صور</span>` : ''}
-          ${v.partner!=null && v.partner!=='' ? `<span class="chip">مع ${esc(T[+v.partner]||'')}</span>` : ''}</span>
+          ${v.partner!=null && v.partner!=='' ? `<span class="chip">مع ${esc(T[+v.partner]||'')}</span>` : ''}${sharesOf(v.id).map(x => `<span class="chip" style="--c:${SH_ST[x.status][1]};--cbg:${SH_ST[x.status][2]}">${esc(T[x.to_idx]||'الزميل')}: ${SH_ST[x.status][0]}</span>`).join('')}${v.sharedFrom ? `<span class="chip">مشتركة من ${esc(v.sharedFrom.name||'زميل')}</span>` : ''}</span>
       </button>
       ${nx && S.canWrite ? `<button class="btn primary stepgo" data-step="${v.id}|${nx[0]}"><span class="stepck-ic" aria-hidden="true">✓</span>اضغط إذا ${STEP_NEXT[nx[0]]}</button>` : ''}
     </div>`; }).join('')
     : `<div class="empty">ما سجلت زيارات هالشهر.<br>بعد ما تزور أي محطة، سجّلها من زر "تسجيل زيارة موقع" فوق.</div>`;
 
-  const plan = planOf(ym);
-  const mine = S.stations.filter(s => plan[s.id]===0);
-  const visitedIds = new Set(vs.flatMap(v => [v.stationId, v.s2 && v.s2.stationId]).filter(Boolean));
-  $('sMineCount').textContent = mine.length ? `${mine.filter(s=>visitedIds.has(s.id)).length} من ${mine.length} تمت زيارتها` : '';
-  $('sMine').innerHTML = mine.length ? `<div class="stlist">${mine.map(s => `<div class="strow"><span class="sticon ${visitedIds.has(s.id)?'done':''}">${visitedIds.has(s.id)?'✓':''}</span>
-      <span class="stbody"><b>${esc(s.name)}</b><span class="xs muted">${stAddr(s)}</span></span>
-      ${mapUrl(s) ? `<a class="btn sm" href="${mapUrl(s)}" target="_blank" rel="noopener">📍 خريطة</a>` : ''}
-      ${!visitedIds.has(s.id) && S.canWrite ? `<button class="btn sm" data-visit-station="${s.id}">سجّل زيارة</button>` : ''}</div>`).join('')}</div>`
-    : `<div class="empty">ما في محطات موزعة لك هالشهر.${S.isAdmin?' وزّعها من قسم التوزيع تحت.':' مدير الفريق يوزعها.'}</div>`;
-
-  const counts = T.map((_,i) => Object.values(plan).filter(x=>x===i).length);
-  $('sTeam').innerHTML = T.map((name,i) => `<div class="tm"><span class="av">${esc((name||'?').trim().charAt(0))}</span><span class="stbody"><b>${esc(name)}${i===S.myIndex?' (أنت)':''}</b><span class="xs muted">${counts[i]} محطة</span></span>
-    <span class="bar"><i style="width:${Math.min(100,counts[i]/target*100)}%"></i></span></div>`).join('')
-    + (S.stations.length < target*5 ? `<p class="xs" style="color:var(--late)">عندك ${S.stations.length} محطة مسجلة، والفريق يحتاج ${target*5} عشان كل واحد ياخذ ${target}. أضف المحطات أو استوردها من القائمة الرسمية.</p>` : '');
-
+  renderCover();
+  renderTeamProgress(ym, target);
+  renderShares();
+  refreshTeamData();
   renderReports();
   renderStations();
+}
+
+/* ---------- coverage: which stations the team has (not) inspected ---------- */
+S.cover = {}; S.shares = []; S.here = null; let nearMode = false, moreN = 5, tdAt = 0, tdBusy = false, teamProg = null;
+const daysAgo = d => d ? Math.round((parseISO(todayISO()) - parseISO(d)) / 864e5) : null;
+const covOf = s => S.cover[s.id] || null;
+const covAge = s => { const c = covOf(s); return c ? daysAgo(c.last) : null; };
+const covTier = s => { const a = covAge(s); return a == null || a > 60 ? 'old' : a > 30 ? 'mid' : 'new'; };
+const coverRank = s => { const a = covAge(s); return a == null ? 9999 : a; }; // higher = needs a visit sooner
+const TIER = {new:['var(--ok)','var(--ok-bg)','حديثة'], mid:['var(--late)','var(--late-bg)','تقترب'], old:['var(--absent)','var(--absent-bg)','تحتاج كشف']};
+const ageTxt = a => a == null ? 'ما انكشفت لحد الحين' : a === 0 ? 'انكشفت اليوم' : a === 1 ? 'انكشفت أمس' : `آخر كشف قبل ${a} يوم`;
+function lastChip(s){
+  const t = TIER[covTier(s)], c = covOf(s);
+  return `<span class="chip" style="--c:${t[0]};--cbg:${t[1]}">${ageTxt(covAge(s))}</span>${c && c.last ? `<span class="xs muted">${fmtDate(c.last,{day:'numeric',month:'short'})}${c.by?' · '+esc(c.by):''}</span>` : ''}`;
+}
+const dirUrl = s => s.lat && s.lng ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.lat+','+s.lng)}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((s.name||'')+' '+(s.area||'شرق')+' الكويت')}`;
+function kmBetween(a, b){ const R = 6371, r = x => x*Math.PI/180, dLa = r(b.lat-a.lat), dLo = r(b.lng-a.lng); const h = Math.sin(dLa/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+const distOf = s => S.here && s.lat && s.lng && !isNaN(+s.lat) ? kmBetween(S.here, {lat:+s.lat, lng:+s.lng}) : null;
+const distTxt = d => d == null ? '' : d < 1 ? `${Math.round(d*1000)} م` : `${d.toFixed(1)} كم`;
+function renderCover(){
+  const all = S.stations, ym = todayISO().slice(0,7);
+  const el = $('sMine'); if (!el) return;
+  if (!all.length) { $('sCover').innerHTML = ''; $('sMineCount').textContent = ''; el.innerHTML = '<div class="empty">ما في محطات مسجلة بعد. تنضاف تلقائي مع أول زيارة تسجلها.</div>'; $('sMore').hidden = true; $('sNear').hidden = true; return; }
+  const tiers = {new:0, mid:0, old:0}; all.forEach(s => tiers[covTier(s)]++);
+  const doneM = all.filter(s => (covOf(s)||{}).nm > 0).length;
+  const seg = k => tiers[k] ? `<i style="width:${tiers[k]/all.length*100}%;background:${TIER[k][0]}"></i>` : '';
+  $('sCover').innerHTML = `<div class="cov">
+    <div class="xs muted">تمت تغطية <b style="color:var(--ink)">${doneM}</b> من ${all.length} محطة هالشهر · آخر كشف لكل محطة (الفريق كله)</div>
+    <div class="covbar" role="img" aria-label="حالة التغطية">${seg('new')}${seg('mid')}${seg('old')}</div>
+    <div class="covleg">${['old','mid','new'].map(k => `<span><em style="background:${TIER[k][0]}"></em>${TIER[k][2]} <b>${tiers[k]}</b></span>`).join('')}</div></div>`;
+  let list = all.filter(s => !((covOf(s)||{}).nm > 0));
+  $('sMineCount').textContent = list.length ? `${list.length} محطة` : '';
+  if (nearMode && S.here) list.sort((a,b) => (distOf(a) ?? 1e9) - (distOf(b) ?? 1e9));
+  else list.sort((a,b) => coverRank(b)-coverRank(a) || (+a.block||999)-(+b.block||999));
+  if (!list.length) { el.innerHTML = '<div class="empty">كل المحطات انكشف عليها هالشهر. عاشت أيديكم.</div>'; $('sMore').hidden = true; $('sNear').hidden = true; return; }
+  const shown = list.slice(0, moreN);
+  el.innerHTML = shown.map(s => { const d = distOf(s); return `<div class="srow">
+    <div class="top"><span class="stbody"><b>${esc(s.name)}</b><span class="xs muted">${esc(stAddr(s))}</span></span>${d != null ? `<span class="dist">${distTxt(d)}</span>` : ''}</div>
+    <div class="chips">${lastChip(s)}</div>
+    <div class="btns"><a class="btn sm" href="${dirUrl(s)}" target="_blank" rel="noopener">📍 اتجاهات</a>${S.canWrite ? `<button type="button" class="btn sm primary" data-visit-station="${s.id}">سجّل زيارة</button>` : ''}</div></div>`; }).join('');
+  $('sMore').hidden = list.length <= moreN; $('sMore').textContent = `عرض المزيد (${list.length - moreN})`;
+  $('sNear').hidden = false; $('sNear').textContent = nearMode ? 'حسب الأولوية' : 'الأقرب لي';
+}
+async function refreshTeamData(force){
+  if (!S.uid || tdBusy || (!force && Date.now() - tdAt < 20000)) return;
+  tdBusy = true; tdAt = Date.now();
+  try {
+    const [cv, sh, tp] = await Promise.all([
+      sb.rpc('station_last_visits'), sb.from('visit_shares').select('*').order('created_at', {ascending:false}),
+      S.isAdmin ? sb.rpc('team_progress', {p_ym: ymOf()}) : Promise.resolve({data:null})]);
+    const before = JSON.stringify([S.cover, S.shares, teamProg]);
+    if (!cv.error && cv.data) { S.cover = {}; cv.data.forEach(r => S.cover[r.station_id] = {last:r.last_date, by:r.last_by, n:r.n, nm:r.n_month}); }
+    if (!sh.error && sh.data) S.shares = sh.data;
+    if (tp.data) teamProg = tp.data;
+    if (JSON.stringify([S.cover, S.shares, teamProg]) !== before && tab === 'sites') { renderCover(); renderTeamProgress(ymOf(), +S.settings.siteTarget||12); renderShares(); renderStations(); }
+  } catch(e) { /* offline: keep the last data */ }
+  tdBusy = false;
+}
+function renderTeamProgress(ym, target){
+  const el = $('sTeam'); if (!el) return;
+  if (!teamProg) { el.innerHTML = '<div class="empty">جاري التحميل…</div>'; return; }
+  el.innerHTML = teamProg.map(r => `<div class="tm"><span class="av">${esc((r.name||'?').trim().charAt(0))}</span><span class="stbody"><b>${esc(r.name)}${r.idx===S.myIndex?' (أنت)':''}</b><span class="xs muted">${r.visits} من ${target} زيارة</span></span>
+    <span class="bar"><i style="width:${Math.min(100,r.visits/target*100)}%"></i></span></div>`).join('');
+  $('sTeamSub').textContent = `${teamProg.reduce((a,r)=>a+r.visits,0)} زيارة للفريق`;
+}
+
+/* ---------- sharing a visit with a partner ---------- */
+const SH_ST = {pending:['بانتظار الرد','var(--late)','var(--late-bg)'], accepted:['قبلها','var(--ok)','var(--ok-bg)'], declined:['رفضها','var(--absent)','var(--absent-bg)']};
+const sharesOf = vid => S.shares.filter(x => x.visit_id === vid && x.from_uid === S.uid);
+function sharePayload(v){
+  const {steps, partner, exemption, sharedFrom, reportFile, createdAt, updatedAt, id, ...rest} = v;
+  return {...rest, fromIdx: S.myIndex};
+}
+async function sendShare(vid, v){
+  if (v.partner == null || v.partner === '' || v.sharedFrom) return null;
+  const {data, error} = await sb.rpc('share_visit', {p_visit_id: vid, p_to_idx: +v.partner, p_payload: sharePayload(v)});
+  if (error) { toast('تعذّر إرسال الزيارة للزميل'); return null; }
+  const i = S.shares.findIndex(x => x.id === data.id); if (i >= 0) S.shares[i] = data; else S.shares.unshift(data);
+  return data;
+}
+function renderShareBox(){
+  const box = $('v_shareBox'), p = $('v_partner').value;
+  const v = editingVisit ? S.visits.find(x => x.id === editingVisit) : null;
+  if (p === '' || (v && v.sharedFrom)) { box.hidden = true; return; }
+  const T = team(), sh = v ? S.shares.find(x => x.visit_id === v.id && x.to_idx === +p && x.from_uid === S.uid) : null;
+  box.hidden = false;
+  if (!sh) box.innerHTML = `<span>بعد ما تحفظ، نرسل الزيارة لـ <b>${esc(T[+p]||'')}</b> يقبلها أو يرفضها. ما تتحدّث عنده تلقائي بعد الإرسال.</span>`;
+  else { const st = SH_ST[sh.status]; box.innerHTML = `<span>مشاركة مع <b>${esc(T[+p]||'')}</b>: <span class="chip" style="--c:${st[1]};--cbg:${st[2]}">${st[0]}</span></span>${sh.status!=='accepted' ? `<button type="button" class="btn sm" id="v_resend">أعد الإرسال</button>` : '<span class="xs muted">انسخت عنده ولا تتحدث تلقائي.</span>'}`; }
+}
+function renderShares(){
+  const mine = S.shares.filter(x => x.to_uid === S.uid && x.status === 'pending');
+  $('sSharesCard').hidden = !mine.length || (S.isAdmin && sview !== 'visits');
+  $('sShares').innerHTML = mine.map(x => { const pl = x.payload || {}; const names = [pl.stationName, pl.s2 && pl.s2.stationName].filter(Boolean).join(' + ');
+    return `<div class="shrow"><div><b>${esc(x.from_name||'زميلك')}</b> شاركك زيارة<div class="xs muted">${esc(names||'محطة')} · ${fmtDate(pl.claimDate||pl.visitDate||todayISO(),{day:'numeric',month:'short'})} · ${(pl.photos||[]).length} صور</div></div>
+      <div class="btns" style="display:flex;gap:8px"><button type="button" class="btn sm primary" data-share-accept="${x.id}" style="flex:1">قبول</button><button type="button" class="btn sm" data-share-decline="${x.id}" style="flex:1">رفض</button></div></div>`; }).join('');
+}
+let acceptingShare = null;
+async function acceptShare(id){
+  const x = S.shares.find(r => r.id === id); if (!x) return;
+  const pl = x.payload || {}; const ps = (pl.photos||[]).length;
+  $('shareMsg').textContent = ''; $('shareGo').disabled = false; $('share_ex').value = 'none';
+  $('shareSub').textContent = `من ${x.from_name||'زميلك'} · ${[pl.stationName, pl.s2 && pl.s2.stationName].filter(Boolean).join(' + ')} · ${ps} صور`;
+  acceptingShare = x; $('shareSheet').hidden = false;
+}
+async function doAccept(){
+  const x = acceptingShare; if (!x) return; const pl = x.payload || {};
+  $('shareGo').disabled = true;
+  const o = {...pl, exemption: $('share_ex').value, partner: pl.fromIdx != null ? String(pl.fromIdx) : '', sharedFrom: {name: x.from_name||'', share: x.id}, photos: [], steps: {visited: pl.visitDate || todayISO()}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()};
+  delete o.fromIdx;
+  try {
+    const src = pl.photos || [];
+    for (let i = 0; i < src.length; i++) {
+      $('shareMsg').textContent = `ننسخ الصور ${i+1} من ${src.length}…`;
+      const blob = await driveBlob(src[i], x.id);
+      const r = await driveUpload(blob, `صورة ${i+1} من ${x.from_name||'زميل'}.jpg`, blob.type || 'image/jpeg', o);
+      o.photos.push(r.id); driveCache[r.id] = blob;
+    }
+    let ref; const ok = await write(async () => { ref = await S.db.collection('visits').add(o); });
+    if (!ok || !ref) throw new Error('save');
+    const {error} = await sb.rpc('respond_share', {p_id: x.id, p_accept: true, p_new_visit_id: ref.id});
+    if (error) throw error;
+    x.status = 'accepted'; $('shareSheet').hidden = true; acceptingShare = null; render(); toast('انضافت الزيارة لحسابك');
+    openVisit(ref.id);
+  } catch(e) { $('shareMsg').textContent = 'تعذّر نسخ الزيارة. حاول مرة ثانية.'; $('shareGo').disabled = false; }
 }
 function stAddr(s){ return [s.area||'شرق', s.block?'ق '+s.block:'', s.street?'ش '+s.street:'', s.addr||''].filter(Boolean).join(' · '); }
 function renderStations(){
   const q = ($('stSearch').value||'').trim();
-  const plan = planOf(ymOf()), T = team();
-  const list = S.stations.filter(s => !q || (s.name||'').includes(q) || String(s.block||'')===q).sort((a,b) => (+a.block||999)-(+b.block||999) || (a.name||'').localeCompare(b.name||'','ar'));
+  const list = S.stations.filter(s => !q || (s.name||'').includes(q) || String(s.block||'')===q).sort((a,b) => coverRank(b)-coverRank(a) || (+a.block||999)-(+b.block||999) || (a.name||'').localeCompare(b.name||'','ar'));
   $('sStations').innerHTML = list.length ? `<div class="stlist">${list.map(s => `<div class="strow">
       <button class="stbody linkish" data-station="${s.id}"><b>${esc(s.name)}</b><span class="xs muted">${esc(stAddr(s))}${s.source==='prelim'?' · مبدئية':''}</span></button>
       ${mapUrl(s)?`<a class="btn sm" href="${mapUrl(s)}" target="_blank" rel="noopener">خريطة</a>`:''}
-      ${S.isAdmin ? `<select class="assign" data-assign="${s.id}" aria-label="المهندس المسؤول" ${S.canWrite?'':'disabled'}><option value="">—</option>${T.map((n,i)=>`<option value="${i}" ${plan[s.id]===i?'selected':''}>${esc(n)}</option>`).join('')}</select>` : (plan[s.id]!=null && T[plan[s.id]] ? `<span class="assign-name">${esc(T[plan[s.id]])}</span>` : '')}
+      <span class="lc">${lastChip(s)}</span>
     </div>`).join('')}</div>`
     : `<div class="empty">${q?'ما في نتائج.':'ما في محطات مسجلة. أضفها وحدة وحدة أو استورد القائمة الرسمية لما توصلك.'}</div>`;
 }
@@ -908,9 +1021,13 @@ async function ensureStations(o){
 }
 async function saveVisit(o, quiet){
   await ensureStations(o);
-  if (editingVisit) return write(() => S.db.doc('visits/'+editingVisit).set(o), quiet ? '' : 'تم حفظ الزيارة');
-  let ref; const ok = await write(async () => { ref = await S.db.collection('visits').add(o); }, quiet ? '' : 'تمت إضافة الزيارة');
-  if (ok && ref) editingVisit = ref.id;
+  let ok;
+  if (editingVisit) ok = await write(() => S.db.doc('visits/'+editingVisit).set(o), quiet ? '' : 'تم حفظ الزيارة');
+  else { let ref; ok = await write(async () => { ref = await S.db.collection('visits').add(o); }, quiet ? '' : 'تمت إضافة الزيارة'); if (ok && ref) editingVisit = ref.id; }
+  if (ok && editingVisit) {
+    if (o.partner !== '' && o.partner != null && !o.sharedFrom && !S.shares.some(x => x.visit_id === editingVisit && x.to_idx === +o.partner && x.from_uid === S.uid)) { const sh = await sendShare(editingVisit, o); if (sh) toast('أرسلنا الزيارة لزميلك'); }
+    refreshTeamData(true);
+  }
   return ok;
 }
 function openVisit(id, presetStation){
@@ -934,7 +1051,7 @@ function openVisit(id, presetStation){
   $('v_ex').value = v.exemption||'none'; $('v_type').value = v.workType||'كشف محطات';
   const T = team();
   $('v_partner').innerHTML = '<option value="">بروحي</option>' + T.map((n,i)=>[n,i]).filter(([,i]) => i !== S.myIndex).map(([n,i])=>`<option value="${i}">${esc(n)}</option>`).join('');
-  $('v_partner').value = v.partner ?? '';
+  $('v_partner').value = v.partner ?? ''; renderShareBox();
   vGeo[1] = v.lat ? {lat:v.lat, lng:v.lng} : null; vGeo[2] = v.s2 && v.s2.lat ? {lat:v.s2.lat, lng:v.s2.lng} : null; renderGeo();
   setObs(v); $('v_notes').value = v.notes||'';
   $('v_stType').value = v.stType||'sub'; $('v_full').checked = !!v.fullForm; renderFull(v.full || fullDefaults(v.checks || getObs()), s2.full || fullDefaults(s2.checks));
@@ -1277,6 +1394,25 @@ document.addEventListener('click', async ev => {
   const sp = t.closest('[data-step]');
   if (sp) { const [id,k] = sp.dataset.step.split('|'); const v = S.visits.find(x=>x.id===id); if (!v) return; const steps = {...(v.steps||{}), [k]: todayISO()};
     await write(() => S.db.doc('visits/'+id).update({steps}), 'تم: '+STEPS.find(s=>s[0]===k)[1]); return; }
+  if (t.id==='sMore') { moreN += 10; renderCover(); return; }
+  if (t.id==='sNear') {
+    if (nearMode) { nearMode = false; renderCover(); return; }
+    if (S.here) { nearMode = true; renderCover(); return; }
+    if (!navigator.geolocation) { toast('جهازك ما يدعم تحديد الموقع'); return; }
+    navigator.geolocation.getCurrentPosition(p => { S.here = {lat:p.coords.latitude, lng:p.coords.longitude}; nearMode = true; renderCover(); }, () => toast('ما قدرنا نحدد موقعك. فعّل الموقع للمتصفح.'), {enableHighAccuracy:true, timeout:12000});
+    return;
+  }
+  const sa = t.closest('[data-share-accept]'); if (sa) { acceptShare(sa.dataset.shareAccept); return; }
+  const sd = t.closest('[data-share-decline]'); if (sd) {
+    const {error} = await sb.rpc('respond_share', {p_id: sd.dataset.shareDecline, p_accept: false});
+    if (error) { toast('تعذّر الرفض، حاول مرة ثانية'); return; }
+    const r = S.shares.find(x => x.id === sd.dataset.shareDecline); if (r) r.status = 'declined'; renderShares(); toast('رفضت المشاركة. سجّل زيارتك بنفسك.'); return;
+  }
+  if (t.id==='v_resend') {
+    const o = visitFromForm(); if (!editingVisit || !o.stationName) { toast('احفظ الزيارة أول'); return; }
+    if (await saveVisit(o, true)) { const sh = await sendShare(editingVisit, o); if (sh) { toast('انرسلت من جديد'); renderShareBox(); } }
+    return;
+  }
   if (t.id==='v_copy') { copyText(diwanNote(visitFromForm())); return; }
   if (t.id==='v_saveonly') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (!o.visitDate) { toast('حدد تاريخ الزيارة'); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (await saveVisit(o)) $('visitSheet').hidden = true; return; }
   if (t.id==='v_report') { const o = visitFromForm(); if (!o.stationName) { toast('اختر المحطة أو اكتب اسمها'); return; } if (needS2(o) && !o.s2) { toast('اختر المحطة الثانية، التقرير لازم يكون لمحطتين'); $('v2Sec').scrollIntoView({behavior:'smooth', block:'start'}); return; } if (vPhotos.some(p=>p.busy)) { toast('انتظر لين تخلص الصور من الرفع'); return; } if (S.db && S.canWrite) await saveVisit(o, true); openReport(o); return; }
@@ -1304,6 +1440,7 @@ document.addEventListener('change', async ev => {
   if (t.dataset.assign) { const plan = {...planOf(ymOf())}; if (t.value==='') delete plan[t.dataset.assign]; else plan[t.dataset.assign] = +t.value; await savePlan(ymOf(), plan); }
 });
 document.addEventListener('input', ev => { if (ev.target.id==='stSearch') renderStations(); });
+document.addEventListener('change', ev => { if (ev.target.id==='v_partner') renderShareBox(); });
 document.addEventListener('submit', async ev => {
   const f = ev.target;
   if (f.id==='visitF') {
@@ -1315,6 +1452,7 @@ document.addEventListener('submit', async ev => {
     if (S.db && S.canWrite) await saveVisit(o, true);
     openReport(o);
   }
+  if (f.id==='shareF') { await doAccept(); return; }
   if (f.id==='stationF') {
     const o = {name:$('sn_name').value.trim(), area:$('sn_area').value.trim()||'شرق', block:$('sn_block').value.trim(), street:$('sn_street').value.trim(),
       lat:$('sn_lat').value.trim(), lng:$('sn_lng').value.trim(), addr:$('sn_addr').value.trim(), type:'ثانوية', source:'manual', updatedAt:new Date().toISOString()};
@@ -1407,9 +1545,9 @@ async function driveUpload(blob, name, mime, v){
   return r; // {id, url}
 }
 const driveCache = {};
-async function driveBlob(id){
+async function driveBlob(id, share){
   if (driveCache[id]) return driveCache[id];
-  const r = await driveCall({action:'get', id});
+  const r = await driveCall(share ? {action:'get', id, share} : {action:'get', id});
   const bin = atob(r.data), u = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i);
   return driveCache[id] = new Blob([u], {type: r.mime||'image/jpeg'});
 }
@@ -1584,7 +1722,7 @@ $('fpF').onsubmit = async e => {
       .catch(() => toast('انحفظت البصمة، بس الصورة ما انحفظت في الدرايف'));
   }
 };
-window.__fp = {sb, exifGps, ensureStations, parseFpText, fpShiftDate, fpClassify, ocrText, mergeSettings, S, render, takeSharedImage, renderInstallTip};
+window.__fp = {sb, exifGps, ensureStations, parseFpText, fpShiftDate, fpClassify, ocrText, mergeSettings, S, render, takeSharedImage, renderInstallTip, setTP: v => { teamProg = v; }, renderShareBox, sendShare};
 
 S.assets = {
   async upload(blob){ const v = visitFromForm(); const r = await driveUpload(blob, `صورة ${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`, 'image/jpeg', v); driveCache[r.id] = blob; return {id:r.id, url:r.url}; },
@@ -1690,6 +1828,7 @@ async function afterLogin(session){
   authView('in'); banner('');
   render();
   renderInstallTip();
+  refreshTeamData(true);
   takeSharedImage();
   offerPasskey();
 }

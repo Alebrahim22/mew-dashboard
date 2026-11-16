@@ -34,7 +34,14 @@ Deno.serve(async (req) => {
     payload = { action: "upload", month, member, sub: String(body.folder ?? "").slice(0, 120), name: String(body.name).slice(0, 150), mime: body.mime || "application/octet-stream", data: body.data };
   } else if (body.action === "get" || body.action === "delete") {
     if (!/^[\w-]{10,}$/.test(body.id ?? "")) return json({ error: "bad_id" }, 400);
-    payload = { action: body.action, id: body.id, member };
+    let owner = member;
+    if (body.action === "get" && body.share) { // a photo from a visit shared with me: read it from the sender's folder
+      if (!/^[0-9a-f-]{36}$/.test(body.share)) return json({ error: "bad_share" }, 400);
+      const { data: from } = await sb.rpc("share_owner", { p_share: body.share, p_file: body.id });
+      if (!from) return json({ error: "not_shared" }, 403);
+      owner = String(from).replace(/[\\/:*?"<>|]/g, "").trim() || "عضو";
+    }
+    payload = { action: body.action, id: body.id, member: owner };
   } else return json({ error: "bad_action" }, 400);
 
   const r = await fetch(url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ ...payload, secret }), redirect: "follow" });

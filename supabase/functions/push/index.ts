@@ -1,5 +1,5 @@
 // Push reminders for دوامي وبصماتي.
-// actions: vapid (public key) · test (send to caller) · tick (cron, every 5 minutes)
+// actions: vapid (public key) · test (send to caller) · tick (cron, every 5 minutes) · notify (cron token, used by share_visit)
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import webpush from "npm:web-push@3.6.7";
 
@@ -117,6 +117,13 @@ Deno.serve(async (req) => {
       if (!user) return json({ error: "unauthorized" }, 401);
       await vapid();
       const sent = await sendTo(user.id, { title: "دوامي وبصماتي", body: "التنبيهات شغالة. بيوصلك تنبيه قبل الدخول، ووقت نافذة التواجد، وعند نهاية الخفارة.", tag: "test" });
+      return json({ ok: true, sent });
+    }
+    if (b.action === "notify") { // called from the share_visit RPC (cron token)
+      const tok = await secret("cron_token");
+      if (!tok || b.token !== tok || typeof b.to_uid !== "string") return json({ error: "unauthorized" }, 401);
+      await vapid();
+      const sent = await sendTo(b.to_uid, { title: String(b.title ?? "الداشبورد").slice(0, 80), body: String(b.body ?? "").slice(0, 200), tag: "share", url: "./#sites" });
       return json({ ok: true, sent });
     }
     if (b.action === "tick") {
