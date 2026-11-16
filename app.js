@@ -713,9 +713,51 @@ async function shrink(file){
     return await new Promise(r => c.toBlob(r, 'image/jpeg', .82));
   } finally { URL.revokeObjectURL(u); }
 }
+// GPS from the photo's EXIF (read from the original file, the resized copy has no metadata)
+async function exifGps(file){
+  try {
+    const buf = await file.slice(0, 262144).arrayBuffer(), dv = new DataView(buf);
+    if (dv.getUint16(0) !== 0xFFD8) return null;
+    let o = 2;
+    while (o + 4 < dv.byteLength) {
+      const mk = dv.getUint16(o), len = dv.getUint16(o+2);
+      if (mk === 0xFFE1 && dv.getUint32(o+4) === 0x45786966) { // "Exif"
+        const t = o + 10, le = dv.getUint16(t) === 0x4949, u16 = x => dv.getUint16(t+x, le), u32 = x => dv.getUint32(t+x, le);
+        const ifd = (off) => { const n = u16(off), m = {}; for (let i=0;i<n;i++) { const e = off+2+i*12; m[u16(e)] = {type:u16(e+2), cnt:u32(e+4), val:e+8}; } return m; };
+        const i0 = ifd(u32(4)); if (!i0[0x8825]) return null;
+        const g = ifd(u32(i0[0x8825].val));
+        const ref = tg => String.fromCharCode(dv.getUint8(t + g[tg].val));
+        const rat = tg => { let a = u32(g[tg].val); const r = []; for (let i=0;i<3;i++) { const n = u32(a+i*8), d = u32(a+i*8+4); r.push(d ? n/d : 0); } return r[0] + r[1]/60 + r[2]/3600; };
+        if (!g[2] || !g[4]) return null;
+        let lat = rat(2), lng = rat(4); if (g[1] && ref(1) === 'S') lat = -lat; if (g[3] && ref(3) === 'W') lng = -lng;
+        if (!isFinite(lat) || !isFinite(lng) || (!lat && !lng)) return null;
+        return {lat: lat.toFixed(6), lng: lng.toFixed(6)};
+      }
+      if ((mk & 0xFF00) !== 0xFF00) break; o += 2 + len;
+    }
+  } catch(e){}
+  return null;
+}
+const vGeo = {1:null, 2:null};
+const gmap = g => g ? `https://www.google.com/maps?q=${encodeURIComponent(g.lat+','+g.lng)}` : '';
+function renderGeo(){
+  for (const n of [1,2]) { const el = $(n===1 ? 'v_geo' : 'v2_geo'); if (!el) continue; const g = vGeo[n];
+    el.innerHTML = g ? `<a class="btn sm primary" href="${gmap(g)}" target="_blank" rel="noopener">📍 افتح موقع المحطة في خرائط جوجل</a><button type="button" class="btn sm" data-geoclear="${n}">مسح</button>`
+      : `<button type="button" class="btn sm" data-geonow="${n}">📍 حدّد موقعي الحين كموقع للمحطة</button><span class="xs muted">أو يؤخذ تلقائياً من موقع تصوير الصورة</span>`; }
+}
+document.addEventListener('click', ev => {
+  const c = ev.target.closest('[data-geoclear]'); if (c) { vGeo[c.dataset.geoclear] = null; renderGeo(); return; }
+  const b = ev.target.closest('[data-geonow]'); if (!b) return;
+  if (!navigator.geolocation) { toast('هالجهاز ما يدعم تحديد الموقع'); return; }
+  b.disabled = true; b.textContent = 'جاري تحديد الموقع…';
+  navigator.geolocation.getCurrentPosition(pos => { vGeo[b.dataset.geonow] = {lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6)}; renderGeo(); toast('انحفظ موقعك للمحطة'); },
+    () => { toast('ما قدرت أحدد موقعك، فعّل الموقع للمتصفح'); renderGeo(); }, {enableHighAccuracy:true, timeout:15000});
+});
 async function addPhotos(files){
   for (const f of files) {
     if (vPhotos.length >= 8) { toast('الحد ٨ صور للزيارة'); break; }
+    const gps = await exifGps(f);
+    if (gps) { const n = !vGeo[1] ? 1 : (!vGeo[2] && $('v2Sec') && !$('v2Sec').hidden ? 2 : 0); if (n) { vGeo[n] = gps; renderGeo(); toast(n===1 ? 'أخذت موقع المحطة من الصورة' : 'أخذت موقع المحطة الثانية من الصورة'); } }
     let blob; try { blob = await shrink(f); } catch(e) { toast('تعذّر قراءة الصورة'); continue; }
     const p = {blob, url: URL.createObjectURL(blob), busy: !!S.assets};
     vPhotos.push(p); renderPhotos();
@@ -821,6 +863,7 @@ function renderSites(){
   $('sMineCount').textContent = mine.length ? `${mine.filter(s=>visitedIds.has(s.id)).length} من ${mine.length} تمت زيارتها` : '';
   $('sMine').innerHTML = mine.length ? `<div class="stlist">${mine.map(s => `<div class="strow"><span class="sticon ${visitedIds.has(s.id)?'done':''}">${visitedIds.has(s.id)?'✓':''}</span>
       <span class="stbody"><b>${esc(s.name)}</b><span class="xs muted">${stAddr(s)}</span></span>
+      ${mapUrl(s) ? `<a class="btn sm" href="${mapUrl(s)}" target="_blank" rel="noopener">📍 خريطة</a>` : ''}
       ${!visitedIds.has(s.id) && S.canWrite ? `<button class="btn sm" data-visit-station="${s.id}">سجّل زيارة</button>` : ''}</div>`).join('')}</div>`
     : `<div class="empty">ما في محطات موزعة لك هالشهر.${S.isAdmin?' وزّعها من قسم التوزيع تحت.':' مدير الفريق يوزعها.'}</div>`;
 
@@ -847,7 +890,24 @@ function renderStations(){
 
 /* visit editor */
 let editingVisit = null;
+async function ensureStations(o){
+  const one = async (st, setId) => {
+    if (!st || !st.stationName) return;
+    const known = st.stationId && stationById(st.stationId);
+    const needGeo = st.lat && st.lng && !(known && known.lat && known.lng);
+    const needInfo = known && ((st.block && !known.block) || (st.street && !known.street));
+    if (known && !needGeo && !needInfo) return;
+    try {
+      const {data, error} = await sb.rpc('upsert_station', {p_name: st.stationName, p_data: {area: st.area, block: st.block, street: st.street, lat: st.lat, lng: st.lng}});
+      if (error) throw error;
+      if (data && data.id) { setId(data.id); applyLocal('stations', data.id, data.data); }
+    } catch(e) { /* the visit still saves; the station can be added from the list */ }
+  };
+  await one(o, id => { o.stationId = id; });
+  if (o.s2) await one(o.s2, id => { o.s2.stationId = id; });
+}
 async function saveVisit(o, quiet){
+  await ensureStations(o);
   if (editingVisit) return write(() => S.db.doc('visits/'+editingVisit).set(o), quiet ? '' : 'تم حفظ الزيارة');
   let ref; const ok = await write(async () => { ref = await S.db.collection('visits').add(o); }, quiet ? '' : 'تمت إضافة الزيارة');
   if (ok && ref) editingVisit = ref.id;
@@ -875,6 +935,7 @@ function openVisit(id, presetStation){
   const T = team();
   $('v_partner').innerHTML = '<option value="">بروحي</option>' + T.slice(1).map((n,i)=>`<option value="${i+1}">${esc(n)}</option>`).join('');
   $('v_partner').value = v.partner ?? '';
+  vGeo[1] = v.lat ? {lat:v.lat, lng:v.lng} : null; vGeo[2] = v.s2 && v.s2.lat ? {lat:v.s2.lat, lng:v.s2.lng} : null; renderGeo();
   setObs(v); $('v_notes').value = v.notes||'';
   $('v_stType').value = v.stType||'sub'; $('v_full').checked = !!v.fullForm; renderFull(v.full || fullDefaults(v.checks || getObs()), s2.full || fullDefaults(s2.checks));
   vPhotos = (v.photos||[]).map(id => ({id, url:''})); renderPhotos(); hydratePhotos();
@@ -897,6 +958,7 @@ function visitFromForm(){
     exemption: $('v_ex').value, workType: $('v_type').value.trim(), partner: $('v_partner').value,
     checks: getObs(), extra: $('v_desc').value.trim(), desc: [...getObs(), ...$('v_desc').value.split(/\n+/).map(x=>x.trim()).filter(Boolean)].join('\n'),
     photos: vPhotos.filter(p=>p.id).map(p=>p.id), notes: $('v_notes').value.trim(), steps,
+    lat: vGeo[1] ? vGeo[1].lat : '', lng: vGeo[1] ? vGeo[1].lng : '',
     stType: $('v_stType').value, fullForm: $('v_full').checked, full: getFull('fr_'), s2: station2FromForm(),
     createdAt: old?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString()
   };
@@ -912,6 +974,7 @@ function station2FromForm(){
   if (!name) return null;
   const checks = getObs2(), extra = $('v2_desc').value.trim();
   return {stationId: s ? s.id : '', stationName: name, area: $('v2_area').value.trim(), block: $('v2_block').value.trim(), street: $('v2_street').value.trim(),
+    lat: vGeo[2] ? vGeo[2].lat : '', lng: vGeo[2] ? vGeo[2].lng : '',
     stType: $('v2_stType').value, checks, extra, desc: [...checks, ...extra.split(/\n+/).map(x=>x.trim()).filter(Boolean)].join('\n'), full: getFull('fr2_')};
 }
 function updateDiwan(){
@@ -1230,10 +1293,10 @@ document.addEventListener('click', async ev => {
 });
 document.addEventListener('change', async ev => {
   const t = ev.target;
-  if (t.id==='v_station') { const s = stationById(t.value); $('v_nameWrap').hidden = t.value!=='__other'; if (s) { $('v_block').value = s.block||''; $('v_street').value = s.street||''; $('v_area').value = s.area||'شرق'; } updateDiwan(); }
+  if (t.id==='v_station') { const s = stationById(t.value); $('v_nameWrap').hidden = t.value!=='__other'; if (s) { $('v_block').value = s.block||''; $('v_street').value = s.street||''; $('v_area').value = s.area||'شرق'; if (s.lat && s.lng) { vGeo[1] = {lat:s.lat, lng:s.lng}; renderGeo(); } } updateDiwan(); }
   if (['v_ex','v_cdate','v_name','v_area'].includes(t.id)) updateDiwan();
   if (t.id==='v_full') { if (t.checked) renderFull(fullDefaults(getObs()), fullDefaults(getObs2())); else $('v_fullBox').hidden = true; }
-  if (t.id==='v2_station') { const s = stationById(t.value); $('v2_nameWrap').hidden = t.value!=='__other'; if (s) { $('v2_block').value = s.block||''; $('v2_street').value = s.street||''; $('v2_area').value = s.area||'شرق'; } updateDiwan(); }
+  if (t.id==='v2_station') { const s = stationById(t.value); $('v2_nameWrap').hidden = t.value!=='__other'; if (s) { $('v2_block').value = s.block||''; $('v2_street').value = s.street||''; $('v2_area').value = s.area||'شرق'; if (s.lat && s.lng) { vGeo[2] = {lat:s.lat, lng:s.lng}; renderGeo(); } } updateDiwan(); }
   if (t.id==='v2_name') updateDiwan();
   if (t.id==='v_vdate' && !editingVisit) { $('v_cdate').value = t.value; updateDiwan(); }
   if (t.id==='v_vdate' || t.id==='v_cdate') toggleV2();
@@ -1521,7 +1584,7 @@ $('fpF').onsubmit = async e => {
       .catch(() => toast('انحفظت البصمة، بس الصورة ما انحفظت في الدرايف'));
   }
 };
-window.__fp = {parseFpText, fpShiftDate, fpClassify, ocrText, mergeSettings, S, render, takeSharedImage, renderInstallTip};
+window.__fp = {sb, exifGps, ensureStations, parseFpText, fpShiftDate, fpClassify, ocrText, mergeSettings, S, render, takeSharedImage, renderInstallTip};
 
 S.assets = {
   async upload(blob){ const v = visitFromForm(); const r = await driveUpload(blob, `صورة ${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`, 'image/jpeg', v); driveCache[r.id] = blob; return {id:r.id, url:r.url}; },

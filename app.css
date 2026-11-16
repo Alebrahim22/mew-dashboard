@@ -461,3 +461,4 @@ button.kpi:active{transform:scale(.98)}
 .rep:last-of-type{border-bottom:0}
 .rep-ic{flex:none;width:40px;height:40px;border-radius:10px;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-size:.7rem;font-weight:800}
 .rep .stbody{flex:1;min-width:0}
+.geo{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-4px 0 4px}
