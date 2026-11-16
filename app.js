@@ -679,11 +679,24 @@ document.addEventListener('click', ev => {
   if (g) { view.m = +g.dataset.gotoMonth; pmode = 'month'; try { localStorage.setItem('dawami.pmode', pmode); } catch(e){} render(); window.scrollTo(0,0); }
 });
 
+/* ---------- normalisation: Arabic digits -> English, old checklist wording ---------- */
+const ar2en = t => String(t ?? '').replace(/[٠-٩]/g, c => c.charCodeAt(0) - 1632).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 1776).replace(/٫/g, '.');
+const LEGACY_OBS = {'يوجد نفايات بجانب المحطة وتم اللازم':'يوجد نفايات بجانب المحطة', 'يوجد أنقاض أمام المحطة أو حولها':'يوجد أنقاض', 'يوجد أنقاض أمام المحطة':'يوجد أنقاض'};
+const fixObs = x => LEGACY_OBS[x] || x;
+const normSt = o => { if (!o) return o; const r = {...o}; for (const k of ['stationName','name','block','street']) if (r[k] != null) r[k] = ar2en(r[k]); return r; };
+function normVisit(d){
+  const r = normSt(d);
+  if (Array.isArray(r.checks)) r.checks = r.checks.map(fixObs);
+  if (r.desc) r.desc = String(r.desc).split('\n').map(fixObs).join('\n');
+  if (r.s2) { r.s2 = normSt(r.s2); if (Array.isArray(r.s2.checks)) r.s2.checks = r.s2.checks.map(fixObs); if (r.s2.desc) r.s2.desc = String(r.s2.desc).split('\n').map(fixObs).join('\n'); }
+  return r;
+}
+
 /* ---------- visit photos + checklist ---------- */
-const OBS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','السور الخارجي سليم','السور الخارجي متضرر وبحاجة إلى صيانة','القفل سليم','القفل تالف أو غير موجود','باب المحطة غير محكم الإغلاق','يوجد نفايات بجانب المحطة وتم اللازم','يوجد أنقاض أمام المحطة أو حولها','يوجد كتابات أو ملصقات على جدران المحطة','يوجد تجمع مياه حول المحطة','لوحة اسم المحطة غير موجودة أو غير واضحة','يوجد سيارات أو عوائق تسد مدخل المحطة','يوجد تعديات على المحطة','تم إبلاغ الجهة المختصة بالملاحظات'];
+const OBS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','السور الخارجي سليم','السور الخارجي متضرر وبحاجة إلى صيانة','القفل سليم','القفل تالف أو غير موجود','باب المحطة غير محكم الإغلاق','يوجد نفايات بجانب المحطة','يوجد أنقاض','يوجد كتابات أو ملصقات على جدران المحطة','يوجد تجمع مياه حول المحطة','لوحة اسم المحطة غير موجودة أو غير واضحة','يوجد سيارات أو عوائق تسد مدخل المحطة','يوجد تعديات على المحطة','تم إبلاغ الجهة المختصة بالملاحظات'];
 let vPhotos = [];   // {id?, url, blob?, busy?}
 // only problems are listed; anything not ticked counts as fine
-const NEG = [[2,'السور متضرر'],[4,'القفل تالف أو مفقود'],[5,'الباب غير محكم الإغلاق'],[6,'نفايات (وتم اللازم)'],[7,'أنقاض'],[8,'كتابات أو ملصقات'],[9,'تجمع مياه'],[10,'لوحة الاسم مفقودة أو غير واضحة'],[11,'عوائق تسد المدخل'],[12,'تعديات'],[13,'تم إبلاغ الجهة المختصة']];
+const NEG = [[2,'السور متضرر'],[4,'القفل تالف أو مفقود'],[5,'الباب غير محكم الإغلاق'],[6,'نفايات'],[7,'أنقاض'],[8,'كتابات أو ملصقات'],[9,'تجمع مياه'],[10,'لوحة الاسم مفقودة أو غير واضحة'],[11,'عوائق تسد المدخل'],[12,'تعديات'],[13,'تم إبلاغ الجهة المختصة']];
 const negHtml = checks => NEG.map(([i,l]) => `<label class="negck"><input type="checkbox" value="${i}" ${checks.includes(OBS[i])?'checked':''}><span>${l}</span></label>`).join('');
 const readNeg = box => { const c = [...document.querySelectorAll(box+' input:checked')].map(i => OBS[+i.value]); return c.filter(x => x !== OBS[13]).length ? c : [OBS[0], ...c]; };
 function setObs(v){
@@ -803,7 +816,7 @@ const STEPS = [['visited','الزيارة والفحص'],['photo','تصوير ا
 const STEP_NEXT = {visited:'زرت المحطة وفحصتها',photo:'صوّرت المحطة',sent:'رفعت التقرير بالتراسل',mgmt:'اعتمدته الإدارة',diwan:'قدّمته بالديوان',diwanOk:'وافق الديوان'};
 const STEP_SHORT = ['زيارة','تصوير','تراسل','الإدارة','الديوان','موافقة'];
 const EXN = {inPres:'إعفاء الحضور والتواجد', out:'إعفاء الانصراف'};
-const PRESETS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','يوجد نفايات بجانب المحطة وتم اللازم','يوجد أنقاض أمام المحطة','السور الخارجي بحاجة إلى صيانة','القفل تالف أو غير موجود','الباب غير محكم الإغلاق'];
+const PRESETS = ['المحطة سليمة خارجياً (لا يوجد ملاحظات)','يوجد نفايات بجانب المحطة','يوجد أنقاض','السور الخارجي بحاجة إلى صيانة','القفل تالف أو غير موجود','الباب غير محكم الإغلاق'];
 const memberLabel = m => m.name || ((m.email||'').endsWith('@mew-team.app') ? 'عضو' : (m.email||'').split('@')[0]);
 const teamNames = () => { const a=[]; S.members.forEach(m => a[m.idx]=memberLabel(m)); return Array.from(a, x => x||'(محذوف)'); };
 const team = () => { if (S.members.length) return teamNames(); const t = S.settings.team && S.settings.team.length ? S.settings.team.slice() : []; while (t.length<5) t.push(t.length===0 ? (S.settings.name||'أنا') : 'زميل '+(t.length+1)); return t; };
@@ -1069,8 +1082,8 @@ function visitFromForm(){
   const steps = {};
   STEPS.forEach(([k]) => { const el = $('vs_'+k); if (el.checked) steps[k] = el.dataset.date || todayISO(); });
   const o = {
-    stationId: s ? s.id : '', stationName: s ? s.name : $('v_name').value.trim(),
-    area: $('v_area').value.trim(), block: $('v_block').value.trim(), street: $('v_street').value.trim(),
+    stationId: s ? s.id : '', stationName: s ? s.name : ar2en($('v_name').value.trim()),
+    area: $('v_area').value.trim(), block: ar2en($('v_block').value.trim()), street: ar2en($('v_street').value.trim()),
     visitDate: $('v_vdate').value, visitTime: $('v_time').value, claimDate: $('v_cdate').value || $('v_vdate').value,
     exemption: $('v_ex').value, workType: $('v_type').value.trim(), partner: $('v_partner').value,
     checks: getObs(), extra: $('v_desc').value.trim(), desc: [...getObs(), ...$('v_desc').value.split(/\n+/).map(x=>x.trim()).filter(Boolean)].join('\n'),
@@ -1087,10 +1100,10 @@ const needS2 = o => (o.visitDate || o.claimDate || todayISO()) >= TWO_FROM;
 function toggleV2(){ const need = needS2({visitDate: $('v_vdate').value, claimDate: $('v_cdate').value}); const has = !!station2FromForm(); $('v2Sec').hidden = !need && !has; $('v2Req').textContent = need ? '' : '(اختياري قبل ١٥ نوفمبر)'; }
 function station2FromForm(){
   const sid = $('v2_station').value, s = sid && sid!=='__other' ? stationById(sid) : null;
-  const name = s ? s.name : $('v2_name').value.trim();
+  const name = s ? s.name : ar2en($('v2_name').value.trim());
   if (!name) return null;
   const checks = getObs2(), extra = $('v2_desc').value.trim();
-  return {stationId: s ? s.id : '', stationName: name, area: $('v2_area').value.trim(), block: $('v2_block').value.trim(), street: $('v2_street').value.trim(),
+  return {stationId: s ? s.id : '', stationName: name, area: $('v2_area').value.trim(), block: ar2en($('v2_block').value.trim()), street: ar2en($('v2_street').value.trim()),
     lat: vGeo[2] ? vGeo[2].lat : '', lng: vGeo[2] ? vGeo[2].lng : '',
     stType: $('v2_stType').value, checks, extra, desc: [...checks, ...extra.split(/\n+/).map(x=>x.trim()).filter(Boolean)].join('\n'), full: getFull('fr2_')};
 }
@@ -1149,7 +1162,7 @@ async function drawReport(v, nPhotos=0){
 const FULL_ITEMS = [['wall','حائط'],['num','رقم المحطة'],['fence','سور المحطة'],['emerg','باب الطوارئ']];
 const FULL_BAD_NOTE = {wall:'يوجد كتابات أو ملصقات', num:'اللوحة غير موجودة أو غير واضحة', fence:'بحاجة إلى صيانة', emerg:''};
 const ST_TYPES = {sub:'محطة تحويل ثانوية', rmu:'وحدة توزيع متكاملة'};
-const OBS_DEBRIS = 'يوجد أنقاض أمام المحطة أو حولها', OBS_MOD = 'يوجد تعديات على المحطة';
+const OBS_DEBRIS = 'يوجد أنقاض', OBS_MOD = 'يوجد تعديات على المحطة';
 function fullDefaults(checks){ checks = checks||[]; return {wall: checks.includes(OBS[8])?'bad':'ok', num: checks.includes(OBS[10])?'bad':'ok', fence: checks.includes(OBS[2])?'bad':'ok', emerg:'ok'}; }
 function renderFull(f, f2){
   $('v_fullBox').hidden = !$('v_full').checked;
@@ -1454,7 +1467,7 @@ document.addEventListener('submit', async ev => {
   }
   if (f.id==='shareF') { await doAccept(); return; }
   if (f.id==='stationF') {
-    const o = {name:$('sn_name').value.trim(), area:$('sn_area').value.trim()||'شرق', block:$('sn_block').value.trim(), street:$('sn_street').value.trim(),
+    const o = {name:ar2en($('sn_name').value.trim()), area:$('sn_area').value.trim()||'شرق', block:ar2en($('sn_block').value.trim()), street:ar2en($('sn_street').value.trim()),
       lat:$('sn_lat').value.trim(), lng:$('sn_lng').value.trim(), addr:$('sn_addr').value.trim(), type:'ثانوية', source:'manual', updatedAt:new Date().toISOString()};
     if (!o.name) return;
     const ok = editingStation ? await write(() => S.db.doc('stations/'+editingStation).set((({id, ...rest}) => ({...rest, ...o}))(stationById(editingStation))), 'تم الحفظ') : await write(() => S.db.collection('stations').add(o), 'تمت إضافة المحطة');
@@ -1821,7 +1834,7 @@ async function afterLogin(session){
     else if (r.coll==='config' && r.id==='rules') S.rules = r.data;
     else if (r.coll==='days') S.days[r.id] = r.data;
     else if (r.coll==='plans') S.plans[r.id] = r.data;
-    else if (S[r.coll] && Array.isArray(S[r.coll])) S[r.coll].push({id:r.id, ...r.data});
+    else if (S[r.coll] && Array.isArray(S[r.coll])) S[r.coll].push({id:r.id, ...(r.coll==='visits' ? normVisit(r.data) : r.coll==='stations' ? normSt(r.data) : r.data)});
   }
   S.settings = mergeSettings({name: mine.name, fullName: mine.full_name||'', ...(settings||{})});
   S.canWrite = true;
