@@ -868,7 +868,7 @@ function renderSites(){
     : `<div class="empty">ما في محطات موزعة لك هالشهر.${S.isAdmin?' وزّعها من قسم التوزيع تحت.':' مدير الفريق يوزعها.'}</div>`;
 
   const counts = T.map((_,i) => Object.values(plan).filter(x=>x===i).length);
-  $('sTeam').innerHTML = T.map((name,i) => `<div class="tm"><span class="av">${esc((name||'?').trim().charAt(0))}</span><span class="stbody"><b>${esc(name)}${i===0?' (أنت)':''}</b><span class="xs muted">${counts[i]} محطة</span></span>
+  $('sTeam').innerHTML = T.map((name,i) => `<div class="tm"><span class="av">${esc((name||'?').trim().charAt(0))}</span><span class="stbody"><b>${esc(name)}${i===S.myIndex?' (أنت)':''}</b><span class="xs muted">${counts[i]} محطة</span></span>
     <span class="bar"><i style="width:${Math.min(100,counts[i]/target*100)}%"></i></span></div>`).join('')
     + (S.stations.length < target*5 ? `<p class="xs" style="color:var(--late)">عندك ${S.stations.length} محطة مسجلة، والفريق يحتاج ${target*5} عشان كل واحد ياخذ ${target}. أضف المحطات أو استوردها من القائمة الرسمية.</p>` : '');
 
@@ -933,7 +933,7 @@ function openVisit(id, presetStation){
   $('v_vdate').value = v.visitDate||''; $('v_time').value = v.visitTime||''; $('v_cdate').value = v.claimDate||v.visitDate||'';
   $('v_ex').value = v.exemption||'none'; $('v_type').value = v.workType||'كشف محطات';
   const T = team();
-  $('v_partner').innerHTML = '<option value="">بروحي</option>' + T.slice(1).map((n,i)=>`<option value="${i+1}">${esc(n)}</option>`).join('');
+  $('v_partner').innerHTML = '<option value="">بروحي</option>' + T.map((n,i)=>[n,i]).filter(([,i]) => i !== S.myIndex).map(([n,i])=>`<option value="${i}">${esc(n)}</option>`).join('');
   $('v_partner').value = v.partner ?? '';
   vGeo[1] = v.lat ? {lat:v.lat, lng:v.lng} : null; vGeo[2] = v.s2 && v.s2.lat ? {lat:v.s2.lat, lng:v.s2.lng} : null; renderGeo();
   setObs(v); $('v_notes').value = v.notes||'';
